@@ -16,7 +16,6 @@ class Maze:
         for i in ret: self.B[i[0]][i[1]]=1
 
 
-
 m=Maze(10,10)
 m.rand(1)
 m.pb()
