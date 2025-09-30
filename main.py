@@ -42,9 +42,7 @@ def run():
     def home():
         html=''
         for r in range(M.R):
-            for c in range(M.C):
-                #html+=f'''<pre style="color:{["red","black"][(r,c) in P]}">{M.B[r][c]}</pre>'''
-                html+=f'''<c style="color:{["black","red"][(r,c) in P]}">{M.B[r][c]}</c>'''
+            for c in range(M.C): html+=f'''<c style="color:{["black","red"][(r,c) in P]}">{M.B[r][c]}</c>'''
             html+='<br>'
         return html
     app.run(debug=True)
