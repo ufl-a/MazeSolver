@@ -117,6 +117,7 @@ def main():
     pygame.quit()
     sys.exit()
 
+if __name__=="__main__":main()
 
 def web_run():
     app = Flask(__name__)
@@ -133,6 +134,4 @@ def web_run():
             html+='<br>'
         return html
     app.run(debug=True)
-#web_run()
 
-web_run()
