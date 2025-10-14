@@ -42,8 +42,9 @@ class Maze:
     def __str__(self): return '\n'.join(str(self.B[r]) for r in range(self.R))
 
     def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
-    #def fs(self,n,fs): f=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and n not in fs; 
-    #   return list(filter(f,self.ns(n)))
+    def fs(self,n,fs): 
+       f=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and n not in fs; 
+       return list(filter(f,self.ns(n)))
 
     def fns(self,n,fs): #forntier neighbors
         print(n)
