@@ -95,7 +95,8 @@ class Maze:
 
 dims=(20,50)
 M = Maze(*dims)#print(M.fns(M.mid,()))
-P=M.map(M.mid,M.fns(M.mid,()))
+M.map(M.mid,M.fns(M.mid,()))
+print(M)
 
 def run():
     app = Flask(__name__)
