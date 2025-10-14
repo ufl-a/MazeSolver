@@ -3,9 +3,10 @@
 learning:
 https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
+
 from flask import Flask, render_template_string
-import random, heapq
-#import pygame
+import random, heapq,pygame
+
 class Maze: 
     def __init__(self,r,c):
         self.R=r; self.C=c;
@@ -36,10 +37,10 @@ class Maze:
             for D in self.dirs: 
                 r,c=R+D[0],C+D[1] 
                 if not (0<=r<self.R and 0<=c<self.C) or self.B[r][c] or (r,c) in visited: continue
-                if (r,c)==end: return cost,path+[end]
+                if (r,c)==end: return cost,path+[end],visited
                 visited.add((r,c))
                 heapq.heappush(heap,(cost+1,(r,c),path+[(r,c)]))
-        return -1,[]
+        return -1,[],visited
 
     def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
     def fs(self,n,fs): 
@@ -91,16 +92,40 @@ class Maze:
         while r!=None:ret.append(r:=path[r])
         return s,ret
 
+def render(M,scn,px,p):
+    for r in range(M.R):
+        for c in range(M.C):
+            col=((0,0,0),(0xff,0xff,0xff))[M.B[r][c]==1] if (r,c) not in p else (0xff,0,0)
+            px_=pygame.Rect(c*px,r*px,px,px)
+            pygame.draw.rect(scn,col,px_)
+
+def main():
+    pygame.init()
+    dims,px,rn=(200,500),5,1
+    M=Maze(*dims)#;print(M.fns(M.mid,()))
+    F,P=M.map(M.mid,M.fns(M.mid,()))
+    P0,P1=M.djik(M.mid,F)[1:]
+    scn=pygame.display.set_mode((M.C*px,M.R*px))
+    clock = pygame.time.Clock()
+    while rn:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT: rn=False
+        scn.fill((50, 50, 50))
+        render(M,scn,px,P0)
+        pygame.display.flip()
+        clock.tick(30)
+    pygame.quit()
+    sys.exit()
 
 
-def run():
+def web_run():
     app = Flask(__name__)
     @app.route("/")
     def home():
         dims=(20,50)
         M=Maze(*dims)#;print(M.fns(M.mid,()))
         F,P=M.map(M.mid,M.fns(M.mid,()))
-        P0=M.djik(M.mid,F)[1]
+        P0,P1=M.djik(M.mid,F)[1:]
         html=''
         for r in range(M.R):
             for c in range(M.C): html+=f'''<c style="color:{["black","red"][(r,c) in P]}">{M.B[r][c]}</c>'''
@@ -108,5 +133,6 @@ def run():
             html+='<br>'
         return html
     app.run(debug=True)
-run()
+#web_run()
 
+web_run()
