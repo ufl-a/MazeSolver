@@ -1,0 +1,2 @@
+#def four(self,n):return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))]
+
