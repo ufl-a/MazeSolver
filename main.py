@@ -47,7 +47,7 @@ class Maze:
        return list(filter(f,self.ns(n)))
 
     def fns(self,n,fs): #forntier neighbors
-        print(n)
+        #print(n)#check if it is wall and not alr in frontiers
         ret=[]
         if n[0]+1<self.R and self.B[n[0]+1][n[1]] and ((r:=(n[0]+1, n[1])) not in fs):ret.append(r)
         if n[0]-1>=0 and self.B[n[0]-1][n[1]] and ((r:=(n[0]-1, n[1])) not in fs):ret.append(r)
@@ -56,28 +56,55 @@ class Maze:
         return ret
 
 
-    def map(self,p,f): #prims,p=point,f=frontier
+    def map(self,p,f): #prims algo,p=path
+        self.B[p[0]][p[1]]=0 #gen from here 
+        fil=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
         while(len(f)):
-            p.append(fc:=f.pop(random.randint(0,len(f)-1)))
-            self.B[fc[0]][fc[1]]=0
-            if ((fc[0] in (0,self.R-1)) or (fc[1] in (0,self.C-1))): break #to bounds
-            f+=self.fns(fc,f)
+            fc=f.pop(random.randint(0,len(f)-1))
+            #print(list(filter(fil,self.ns(fc))))
+            #if ((fc[0] in (0,self.R-1)) or (fc[1] in (0,self.C-1))): break #to bounds, too soon
+            if len(list(filter(fil,self.ns(fc))))==1:#dig if ex 1 neighboring dug tile 
+                self.B[fc[0]][fc[1]]=0;
+                for _ in self.fns(fc,f):f.append(_)
+
+        side=random.randint(0,3)
+        match side:
+            case 0: 
+                while(self.B[1][(s:=random.randint(0,self.C-1))]!=0):s+=1
+                s=(0,s)
+            case 1: 
+                while(self.B[s:=random.randint(0,self.R-1)][-2]!=0):s+=1
+                s=(s,self.C-1)
+            case 2: 
+                while(self.B[-2][(s:=random.randint(0,self.R-1))])!=0:s+=1
+                s=(self.R-1,s)
+            case 3: 
+                while(self.B[s:=random.randint(0,self.R-1)][1]!=0):s+=1
+                s=(s,0)
+        for _ in range(self.C):
+            self.B[0][_]=1
+            self.B[-1][_]=1
+        for _ in range(self.R):
+            self.B[_][0]=1
+            self.B[_][-1]=1
+        self.B[s[0]][s[1]]=1
+        
+
+        return p 
 
 
-M=Maze(10,10);
-print(M.fns(M.mid,()))
-M.map([M.mid],M.fns(M.mid,()))
-print(M)
+dims=(20,50)
+M = Maze(*dims)#print(M.fns(M.mid,()))
+P=M.map(M.mid,M.fns(M.mid,()))
 
 def run():
-    _,P=M.djik(M.mid,(9,9))
     app = Flask(__name__)
     @app.route("/")
     def home():
         html=''
         for r in range(M.R):
-            for c in range(M.C): html+=f'''<c style="color:{["black","red"][(r,c) in P]}">{M.B[r][c]}</c>'''
+            #for c in range(M.C): html+=f'''<c style="color:{["black","red"][(r,c) in P]}">{M.B[r][c]}</c>'''
+            for c in range(M.C): html+=f'''<c>{M.B[r][c]}</c>'''
             html+='<br>'
         return html
     app.run(debug=True)
-
