@@ -27,20 +27,22 @@ class Maze:
             ret.append(t);
             #for i in ret: self.B[i[0]][i[1]]=1
 
-    def djik(self,start,end): #0:empty tile, 1: blocked; -1: target
-        #self.put((self.C-1,self.r-1),1)
-        self.put(self.mid,'x'); 
-        heap,visited=[],set() 
-        heapq.heappush(heap,(0,start,[start])) #key:(cost,pos,path)
-        while heap:
-            cost,(R,C),path=heapq.heappop(heap)
-            for D in self.dirs: 
-                r,c=R+D[0],C+D[1] 
-                if not (0<=r<self.R and 0<=c<self.C) or self.B[r][c] or (r,c) in visited: continue
-                if (r,c)==end: return cost,path+[end],visited
-                visited.add((r,c))
-                heapq.heappush(heap,(cost+1,(r,c),path+[(r,c)]))
-        return -1,[],visited
+    def gen_djik(self,start,end):
+        ys,heap,visit,cost=[],[],set(),0
+        heapq.heappush(heap,(cost,start,[]))
+        filt=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]]) and ((rc[0],rc[1]) not in visit)
+        while len(heap): 
+           (cost,pos,path)=heapq.heappop(heap) 
+           ys=[]
+           for sq in (ns:=filter(filt,self.ns(pos))):
+               if sq==end: return (cost,path+[end],visit)
+               visit.add(sq)
+               ys+=[sq,pos]
+               heapq.heappush(heap,(cost+1,sq,path+[sq]))
+           #print(heap)
+           yield ys 
+        return -1,[],[]
+
 
     def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
     def fs(self,n,fs): 
@@ -92,32 +94,41 @@ class Maze:
         while r!=None:ret.append(r:=path[r])
         return s,ret
 
-def render(M,scn,px,p):
+def render(M,scn,px):
     for r in range(M.R):
         for c in range(M.C):
-            col=((0,0,0),(0xff,0xff,0xff))[M.B[r][c]==1] if (r,c) not in p else (0xff,0,0)
+            col=((0,0,0),(0xff,0xff,0xff),(0xff,0,0))[M.B[r][c]] 
             px_=pygame.Rect(c*px,r*px,px,px)
             pygame.draw.rect(scn,col,px_)
 
 def main():
     pygame.init()
-    dims,px,rn=(200,500),5,1
+    dims,px,rn=(10,10),50,1
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    F,P=M.map(M.mid,M.fns(M.mid,()))
-    P0,P1=M.djik(M.mid,F)[1:]
+    F,P=M.map(M.mid,M.fns(M.mid,())) 
+    #P0,P1=M.djik(M.mid,F)[1:]
+    djik=M.gen_djik(M.mid,(0,0))
+    print(next(djik))
     scn=pygame.display.set_mode((M.C*px,M.R*px))
     clock = pygame.time.Clock()
+
     while rn:
         for event in pygame.event.get():
-            if event.type == pygame.QUIT: rn=False
+            if event.type==pygame.QUIT: rn=False
+            if event.type==pygame.KEYDOWN:
+                if event.key==pygame.K_w: 
+                    for _ in next(djik): 
+                        M.B[_[0]][_[1]]=2
         scn.fill((50, 50, 50))
-        render(M,scn,px,P0)
+        render(M,scn,px)
         pygame.display.flip()
         clock.tick(30)
     pygame.quit()
     sys.exit()
 
-if __name__=="__main__":main()
+if __name__=="__main__":
+    main()
+
 
 def web_run():
     app = Flask(__name__)
@@ -135,3 +146,22 @@ def web_run():
         return html
     app.run(debug=True)
 
+
+
+'''
+
+    def djik(self,start,end): #0:empty tile, 1: blocked; -1: target
+        #self.put((self.C-1,self.r-1),1)
+        self.put(self.mid,'x'); 
+    heap,visited=[],set() 
+        heapq.heappush(heap,(0,start,[start])) #key:(cost,pos,path)
+        while heap:
+            cost,(R,C),path=heapq.heappop(heap)
+            for D in self.dirs: 
+                r,c=R+D[0],C+D[1] 
+                if not (0<=r<self.R and 0<=c<self.C) or self.B[r][c] or (r,c) in visited: continue
+                if (r,c)==end: return cost,path+[end],visited
+                visited.add((r,c))
+                heapq.heappush(heap,(cost+1,(r,c),path+[(r,c)]))
+        return -1,[],visited
+'''
