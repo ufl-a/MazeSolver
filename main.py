@@ -118,16 +118,17 @@ class sprite:
 def render(M,tl,d,s,scn,px,v=100): #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
     (R,C)=tl
+    print(M.end[0]==R-v)
     U=d.union(s)
     for r in range(v):
         r_=R+r #real tile
         for c in range(v):
             c_=C+c
             px_=pygame.Rect(c*px,r*px,px,px)
-            col=(0xff,0xff,0xff) if M.B[r_][c_] else (0,0,0) if (r_,c_) not in U else (0xee,0xee,0)
+            col=(0xff,0xff,0xff) if M.B[r_][c_] else (0,0,0) if (r_,c_) not in U  else (0xee,0xee,0) if ((r_,c_)!=M.end) else (70,10,10)
             pygame.draw.rect(scn,col,px_)
             if (r_,c_) in s:
-                sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay Astar squares 
+                sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
 def main():
     pygame.init()
@@ -138,19 +139,26 @@ def main():
 
     M=Maze(*dims)#;print(M.fns(M.mid,()))
     F,P=M.map(M.mid,M.fns(M.mid,())) #P0,P1=M.djik(M.mid,F)[1:]
+    print('\t',M.end)
     djik,star=(M.gen_djik(M.mid,F),M.gen_star(M.mid,F))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
         v=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2))
     scn=pygame.display.set_mode((view[0]*px+5*px,view[1]*px))
     clk=pygame.time.Clock()
     d,s=set(),set()
-    drag,mpos,ofs=0,(0,0),(0,0)
+    drag,mpos=0,(0,0)
     while run:
         for event in pygame.event.get():
             if event.type==pygame.QUIT: run=False
             if event.type==pygame.KEYDOWN:
                 if event.key==pygame.K_w: 
-                    d,s=d.union(set(next(djik))),s.union(set(next(star)));print(d,s)
+                    try:
+                        d=d.union(set(next(djik)))
+                    except StopIteration:
+                        pass
+
+
+                    s.union(set(next(star)));print(d,s)
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
                 if event.pos[0]<view[0]*px:
                     drag,mpos=(1,event.pos)
