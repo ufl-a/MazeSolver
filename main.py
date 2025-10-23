@@ -106,7 +106,7 @@ class Maze:
         return s,ret
 
 class sprite:
-    def ast(scn,clr,mid,px,wid):
+    def star(scn,clr,mid,px,wid):
         to,(x,y)=px//4,mid
         tos=[((x,y-to),(x,y+to)),
              ((x-to,y),(x+to,y)),
@@ -115,74 +115,56 @@ class sprite:
             ]
         for (a,b) in tos: pygame.draw.line(scn,clr,a,b,wid)
 
-def render(M,d,s,scn,px):
-    #panel
-
-    for r in range(M.R):
-        for c in range(M.C):
+def render(M,tl,d,s,scn,px,v=100): #render v tiles from top-left(tl)
+    #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
+    (R,C)=tl
+    U=d.union(s)
+    for r in range(v):
+        r_=R+r #real tile
+        for c in range(v):
+            c_=C+c
             px_=pygame.Rect(c*px,r*px,px,px)
-            col=(0xff,0xff,0xff) if M.B[r][c] else (0,0,0) if (r,c) not in d.union(s) else (0xee,0xee,0)
+            col=(0xff,0xff,0xff) if M.B[r_][c_] else (0,0,0) if (r_,c_) not in U else (0xee,0xee,0)
             pygame.draw.rect(scn,col,px_)
-    for (r, c) in s:sprite.ast(scn, 0xffffff,((c+0.5)*px,(r+0.5)*px),px,2)
-
-def render(M, d, s, scn, px, offset):
-    ox, oy = offset
-    for r in range(M.R):
-        for c in range(M.C):
-            rect = pygame.Rect(c*px + ox, r*px + oy, px, px)
-            col = (0xff,0xff,0xff) if M.B[r][c] else (0,0,0) if (r,c) not in d.union(s) else (0xee,0xee,0)
-            pygame.draw.rect(scn, col, rect)
-
-    for (r, c) in s:
-        sprite.ast(scn, 0xffffff, ((c + 0.5) * px + ox, (r + 0.5) * px + oy), px, 2)
-
+            if (r_,c_) in s:
+                sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay Astar squares 
 
 def main():
     pygame.init()
-    dims,px,rn=(20,20),40,1
-    #dims,px,rn=(2e2,5e2),40,1
+    dims=(round(1e5**.5),round(1e5**.5)+1)
+    v,view=(0,0),(100,100) #tl/view tile  , viewport
+    px,run=10,1
+    #dims,px,run=(20,20),40,1
+
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    F,P=M.map(M.mid,M.fns(M.mid,())) 
-    #P0,P1=M.djik(M.mid,F)[1:]
-    djik=M.gen_djik(M.mid,F)#;print(next(djik))
-    star=M.gen_star(M.mid,F)#;print("\t",next(star))
-    scn=pygame.display.set_mode((M.C*px+5*px,M.R*px))
+    F,P=M.map(M.mid,M.fns(M.mid,())) #P0,P1=M.djik(M.mid,F)[1:]
+    djik,star=(M.gen_djik(M.mid,F),M.gen_star(M.mid,F))
+    if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
+        v=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2))
+    scn=pygame.display.set_mode((view[0]*px+5*px,view[1]*px))
     clk=pygame.time.Clock()
-
     d,s=set(),set()
-
-    dragging = False
-    offset = [0, 0]
-    last_mouse = (0, 0)
-    while rn:
+    drag,mpos,ofs=0,(0,0),(0,0)
+    while run:
         for event in pygame.event.get():
-            if event.type==pygame.QUIT: rn=False
+            if event.type==pygame.QUIT: run=False
             if event.type==pygame.KEYDOWN:
                 if event.key==pygame.K_w: 
-                    for _ in next(djik): 
-                        d.add(_)
-                    for _ in next(star): s.add(_)
-
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # left click starts dragging
-                    dragging = True
-                    last_mouse = event.pos
-
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 1:  # stop dragging
-                    dragging = False
-
-            elif event.type == pygame.MOUSEMOTION and dragging:
-                mx, my = event.pos
-                dx = mx - last_mouse[0]
-                dy = my - last_mouse[1]
-                offset[0] += dx
-                offset[1] += dy
-                last_mouse = (mx, my)
-
-
-        scn.fill((50, 50, 50))
-        render(M,d,s,scn,px,offset)
+                    d,s=d.union(set(next(djik))),s.union(set(next(star)));print(d,s)
+            elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
+                if event.pos[0]<view[0]*px:
+                    drag,mpos=(1,event.pos)
+            elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0
+            elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<view[1]*px):
+                epos=event.pos
+                delt=epos[0]-mpos[0],epos[1]-mpos[1] #view delta
+                v=(v[0]-(delt[1]//px),v[1]-(delt[0]//px))
+                v=(max(0,v[0]),max(0,v[1]))
+                v=(min(dims[0]-view[0],v[0]),min(dims[1]-view[1],v[1]))
+                mpos=epos
+        scn.fill((0,0,0))
+        d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
+        render(M,v,d,s,scn,px)
         pygame.display.flip()
         clk.tick(30)
     pygame.quit()
