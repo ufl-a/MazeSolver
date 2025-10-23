@@ -116,6 +116,8 @@ class sprite:
         for (a,b) in tos: pygame.draw.line(scn,clr,a,b,wid)
 
 def render(M,d,s,scn,px):
+    #panel
+
     for r in range(M.R):
         for c in range(M.C):
             px_=pygame.Rect(c*px,r*px,px,px)
@@ -123,28 +125,64 @@ def render(M,d,s,scn,px):
             pygame.draw.rect(scn,col,px_)
     for (r, c) in s:sprite.ast(scn, 0xffffff,((c+0.5)*px,(r+0.5)*px),px,2)
 
+def render(M, d, s, scn, px, offset):
+    ox, oy = offset
+    for r in range(M.R):
+        for c in range(M.C):
+            rect = pygame.Rect(c*px + ox, r*px + oy, px, px)
+            col = (0xff,0xff,0xff) if M.B[r][c] else (0,0,0) if (r,c) not in d.union(s) else (0xee,0xee,0)
+            pygame.draw.rect(scn, col, rect)
+
+    for (r, c) in s:
+        sprite.ast(scn, 0xffffff, ((c + 0.5) * px + ox, (r + 0.5) * px + oy), px, 2)
+
 
 def main():
     pygame.init()
     dims,px,rn=(20,20),40,1
+    #dims,px,rn=(2e2,5e2),40,1
     M=Maze(*dims)#;print(M.fns(M.mid,()))
     F,P=M.map(M.mid,M.fns(M.mid,())) 
     #P0,P1=M.djik(M.mid,F)[1:]
     djik=M.gen_djik(M.mid,F)#;print(next(djik))
     star=M.gen_star(M.mid,F)#;print("\t",next(star))
-    scn=pygame.display.set_mode((M.C*px+10*px,M.R*px+10*px))
+    scn=pygame.display.set_mode((M.C*px+5*px,M.R*px))
     clk=pygame.time.Clock()
 
     d,s=set(),set()
+
+    dragging = False
+    offset = [0, 0]
+    last_mouse = (0, 0)
     while rn:
         for event in pygame.event.get():
             if event.type==pygame.QUIT: rn=False
             if event.type==pygame.KEYDOWN:
                 if event.key==pygame.K_w: 
-                    for _ in next(djik): d.add(_)
+                    for _ in next(djik): 
+                        d.add(_)
                     for _ in next(star): s.add(_)
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # left click starts dragging
+                    dragging = True
+                    last_mouse = event.pos
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 1:  # stop dragging
+                    dragging = False
+
+            elif event.type == pygame.MOUSEMOTION and dragging:
+                mx, my = event.pos
+                dx = mx - last_mouse[0]
+                dy = my - last_mouse[1]
+                offset[0] += dx
+                offset[1] += dy
+                last_mouse = (mx, my)
+
+
         scn.fill((50, 50, 50))
-        render(M,d,s,scn,px)
+        render(M,d,s,scn,px,offset)
         pygame.display.flip()
         clk.tick(30)
     pygame.quit()
