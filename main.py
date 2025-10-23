@@ -132,7 +132,7 @@ def main():
     #P0,P1=M.djik(M.mid,F)[1:]
     djik=M.gen_djik(M.mid,F)#;print(next(djik))
     star=M.gen_star(M.mid,F)#;print("\t",next(star))
-    scn=pygame.display.set_mode((M.C*px,M.R*px))
+    scn=pygame.display.set_mode((M.C*px+10*px,M.R*px+10*px))
     clk=pygame.time.Clock()
 
     d,s=set(),set()
