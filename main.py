@@ -209,11 +209,12 @@ def main():
             elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200, (view doesn't really need to be tuple)
                 if ((epos:=pygame.mouse.get_pos())[0]<px0):
                    v0=view 
-                   tw,th=(px0/v0[0]),(px0/v0[1])
-                   tl0=(epos[0]/tw,epos[1]/th) #print(tl0);exit()
+                   tw0,th0=(px0/v0[0]),(px0/v0[1])
+                   tl0=(epos[0]/tw0,epos[1]/th0)#print(tl0);exit()
                    v1=round(min(max(50,v0[0]*(.9 if (event.y>0) else 1.1)),200))
-                   view=(v1,)*2
-                   print(view)
+                   view=(v1,)*2;#print(view)
+                   tw1,th1=px0/view[0],px0/view[1]
+                   tl=(tl0[0]-epos[0]/tw1,tl[1]-epos[1]/th1)
         scn.fill((0,0,0))
         d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
 
