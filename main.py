@@ -1,8 +1,5 @@
 #!/venv/bin/python
 '''
-todo: 
-    *have fun, we're making a game here. pointless, useless, and therefore eternally worthwhile.
-    *delete this todo
 Algos Used:
 https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
@@ -210,11 +207,11 @@ def main():
                 if ((epos:=pygame.mouse.get_pos())[0]<px0):
                    v0=view 
                    tw0,th0=(px0/v0[0]),(px0/v0[1])
-                   tl0=(epos[0]/tw0,epos[1]/th0)#print(tl0);exit()
+                   cs0=(tl[0]+epos[0]/tw0,tl[1]+epos[1]/th0) #cursor's square=topleft+offset at given scaling
                    v1=round(min(max(50,v0[0]*(.9 if (event.y>0) else 1.1)),200))
                    view=(v1,)*2;#print(view)
                    tw1,th1=px0/view[0],px0/view[1]
-                   tl=(tl0[0]-epos[0]/tw1,tl[1]-epos[1]/th1)
+                   tl=(cs0[0]-epos[0]/tw1,cs0[1]-epos[1]/th1)
         scn.fill((0,0,0))
         d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
 
