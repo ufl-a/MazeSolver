@@ -120,12 +120,12 @@ class sprite:
 def render(M,tl,d,s,scn,PX,rev,zm,v=100,winW=1000,ft="arial",fts=20): 
     #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
-    (R,C)=tl#;print(tl)
+    #(R,C)=(int(tl#;print(tl)
+    st=(max(0,int(math.floor(tl[0]))),max(0,int(math.floor(tl[1]))))
+    end=(min(M.R,int(math.ceil(tl[0]))),min(M.C,int(math.ceil(tl[1]))))
     U=d.union(s)
     px=winW/v
-    #print(111111,v)
-    #px=PX*zm
-    for r in range(v):
+    for r in range(st[0],end[0]):
         r_=R+r #real row/col 
         for c in range(v):
             c_=C+c
@@ -197,16 +197,20 @@ def main():
             elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<view[1]*px):
                 epos=event.pos
                 delt=epos[0]-mpos[0],epos[1]-mpos[1] #view delta
-                tl=(tl[0]-(delt[1]//px),tl[1]-(delt[0]//px))
+                tl=(tl[0]-(delt[1]/px),tl[1]-(delt[0]/px))
                 tl=(max(0,tl[0]),max(0,tl[1]))
                 tl=(min(dims[0]-view[0],tl[0]),min(dims[1]-view[1],tl[1]))
                 mpos=epos
 
             elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200
                 if ((epos:=pygame.mouse.get_pos())[0]<px0):
-                   v0=view[0]
+                   v0=view
+                   tw,th=(px0/v0[0]),(px0/v0[1])
+                   tl0=(epos[0]/tw,epos[1]/th)
+                   print(tl0);exit()
                    v1=round(min(max(50,v0*(.9 if (event.y>0) else 1.1)),200))
                    view=(v1,)*2
+                   tl=(tl[0]+
         scn.fill((0,0,0))
         d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
 
