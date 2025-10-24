@@ -1,5 +1,8 @@
 #!/venv/bin/python
 '''
+todo: 
+    *have fun, we're making a game here. pointless, useless, and therefore eternally worthwhile.
+    *delete this todo
 Algos Used:
 https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
@@ -117,15 +120,21 @@ class sprite:
             ]
         for (a,b) in tos: pygame.draw.line(scn,clr,a,b,wid)
 
-def render(M,tl,d,s,scn,PX,rev,zm,v=100,winW=1000,ft="arial",fts=20): 
+def render(M,tl,d,s,scn,px,rev,zm,v=100,winW=1000,ft="arial",fts=20): 
     #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
-    #(R,C)=(int(tl#;print(tl)
-    st=(max(0,int(math.floor(tl[0]))),max(0,int(math.floor(tl[1]))))
-    end=(min(M.R,int(math.ceil(tl[0]))),min(M.C,int(math.ceil(tl[1]))))
-    U=d.union(s)
     px=winW/v
-    for r in range(st[0],end[0]):
+    f=pygame.font.SysFont("consolas",20)
+    strs,ofy=["Recenter",("Show" if not rev else "Hide")+" Path","Restart"],5
+    for _ in strs:
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+5*10,10*ofy))
+        ofy+=10
+    (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
+    U=d.union(s)
+    #st=(max(0,int(math.floor(tl[0]))),max(0,int(math.floor(tl[1]))))
+    #end=(min(M.R,st[0]+v+1),min(M.C,st[1]+v+1))
+    #for r in range(st[0],end[0]): #alternatively, we could do a loop like this
+    for r in range(v):
         r_=R+r #real row/col 
         for c in range(v):
             c_=C+c
@@ -138,11 +147,6 @@ def render(M,tl,d,s,scn,PX,rev,zm,v=100,winW=1000,ft="arial",fts=20):
             pygame.draw.rect(scn,col,px_)
             if (r_,c_) in s:
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
-    f=pygame.font.SysFont("consolas",20)
-    strs,ofy=["Recenter",("Show" if not rev else "Hide")+" Path","Restart"],5
-    for _ in strs:
-        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+5*px,px*ofy))
-        ofy+=10
 
 def main():
     pygame.init();pygame.font.init()
@@ -202,15 +206,14 @@ def main():
                 tl=(min(dims[0]-view[0],tl[0]),min(dims[1]-view[1],tl[1]))
                 mpos=epos
 
-            elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200
+            elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200, (view doesn't really need to be tuple)
                 if ((epos:=pygame.mouse.get_pos())[0]<px0):
-                   v0=view
+                   v0=view 
                    tw,th=(px0/v0[0]),(px0/v0[1])
-                   tl0=(epos[0]/tw,epos[1]/th)
-                   print(tl0);exit()
-                   v1=round(min(max(50,v0*(.9 if (event.y>0) else 1.1)),200))
+                   tl0=(epos[0]/tw,epos[1]/th) #print(tl0);exit()
+                   v1=round(min(max(50,v0[0]*(.9 if (event.y>0) else 1.1)),200))
                    view=(v1,)*2
-                   tl=(tl[0]+
+                   print(view)
         scn.fill((0,0,0))
         d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
 
