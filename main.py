@@ -115,23 +115,33 @@ class sprite:
             ]
         for (a,b) in tos: pygame.draw.line(scn,clr,a,b,wid)
 
-def render(M,tl,d,s,scn,px,v=100): #render v tiles from top-left(tl)
+def render(M,tl,d,s,scn,px,v=100,ft="arial",fts=20): #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
     (R,C)=tl
-    print(M.end[0]==R-v)
     U=d.union(s)
     for r in range(v):
         r_=R+r #real tile
         for c in range(v):
             c_=C+c
             px_=pygame.Rect(c*px,r*px,px,px)
-            col=(0xff,0xff,0xff) if M.B[r_][c_] else (0,0,0) if (r_,c_) not in U  else (0xee,0xee,0) if ((r_,c_)!=M.end) else (70,10,10)
+            col=(0xff,0xff,0xff) if M.B[r_][c_] else (0,0,0) if (r_,c_) not in U else (0xee,0xee,0) 
+            if (r_,c_)==M.end: col=(255,0,0)
             pygame.draw.rect(scn,col,px_)
             if (r_,c_) in s:
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
+    f=pygame.font.SysFont("consolas",20)
+    strs,ofy=["Recenter","Show Path"],5
+    for _ in strs:
+        t=f.render(_,1,(0xff,0xff,0xff))
+        scn.blit(t,(v*px+5*px,px*ofy))
+        ofy+=10
+
+
+
 
 def main():
     pygame.init()
+    pygame.font.init()
     dims=(round(1e5**.5),round(1e5**.5)+1)
     v,view=(0,0),(100,100) #tl/view tile  , viewport
     px,run=10,1
@@ -139,11 +149,11 @@ def main():
 
     M=Maze(*dims)#;print(M.fns(M.mid,()))
     F,P=M.map(M.mid,M.fns(M.mid,())) #P0,P1=M.djik(M.mid,F)[1:]
-    print('\t',M.end)
+    print('start,end:\t',M.end)
     djik,star=(M.gen_djik(M.mid,F),M.gen_star(M.mid,F))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
-        v=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2))
-    scn=pygame.display.set_mode((view[0]*px+5*px,view[1]*px))
+        sv=v=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2))
+    scn=pygame.display.set_mode((view[0]*px+20*px,view[1]*px))
     clk=pygame.time.Clock()
     d,s=set(),set()
     drag,mpos=0,(0,0)
@@ -156,12 +166,16 @@ def main():
                         d=d.union(set(next(djik)))
                     except StopIteration:
                         pass
-
-
-                    s.union(set(next(star)));print(d,s)
+                    try:
+                        s.union(set(next(star)));print(d,s)
+                    except StopIteration:
+                        pass
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
-                if event.pos[0]<view[0]*px:
+                if (epos:=event.pos)[0]<view[0]*px:
                     drag,mpos=(1,event.pos)
+                elif epos[1]<10*px: v=sv
+                elif 10*px<epos[1]<20*px: print(1010)
+                        
             elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0
             elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<view[1]*px):
                 epos=event.pos
@@ -174,7 +188,7 @@ def main():
         d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
         render(M,v,d,s,scn,px)
         pygame.display.flip()
-        clk.tick(30)
+        clk.tick(10)
     pygame.quit()
     sys.exit()
 
