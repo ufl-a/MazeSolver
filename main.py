@@ -1,11 +1,11 @@
 #!/venv/bin/python
 '''
-learning:
+Algos Used:
 https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
 
 from flask import Flask, render_template_string
-import random, heapq,pygame,sys
+import random,heapq,pygame,sys,math
 
 class Maze: 
     def __init__(self,r,c):
@@ -13,7 +13,8 @@ class Maze:
         self.mid=(r//2,c//2)
         self.B=[[1 for i in range(0,c)] for j in range(0,r)]
         self.dirs=[(-1,0),(1,0),(0,-1),(0,1)] #LRDU
-        self.end=0
+        self.end=None
+        self.path=None
     def __str__(self): return '\n'.join(str(self.B[r]) for r in range(self.R))
     def put(self,idx,num): self.B[idx[0]][idx[1]]=num
     def sum2(self,t0,t1):return (t0[0]+t1[0],t0[1]+t1[1])
@@ -103,6 +104,7 @@ class Maze:
         self.end,s_=s,s
         ret=[s]#;print(s)
         while ((r:=path[s_])!=None): ret.append(r);s_=path[s_]
+        self.path=ret
         return s,ret
 
 class sprite:
@@ -115,48 +117,59 @@ class sprite:
             ]
         for (a,b) in tos: pygame.draw.line(scn,clr,a,b,wid)
 
-def render(M,tl,d,s,scn,px,v=100,ft="arial",fts=20): #render v tiles from top-left(tl)
+def render(M,tl,d,s,scn,PX,rev,zm,v=100,winW=1000,ft="arial",fts=20): 
+    #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
-    (R,C)=tl
+    (R,C)=tl#;print(tl)
     U=d.union(s)
+    px=winW/v
+    #print(111111,v)
+    #px=PX*zm
     for r in range(v):
-        r_=R+r #real tile
+        r_=R+r #real row/col 
         for c in range(v):
             c_=C+c
             px_=pygame.Rect(c*px,r*px,px,px)
-            col=(0xff,0xff,0xff) if M.B[r_][c_] else (0,0,0) if (r_,c_) not in U else (0xee,0xee,0) 
-            if (r_,c_)==M.end: col=(255,0,0)
+            #print(M.path);exit()
+            col=(0xff,0xff,0xff) if M.B[r_][c_] \
+                    else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
+                    else (0,0,0xff) if (rev and rc in M.path and rc not in d) else (0xee,0xee,0)
+            if (r_,c_)==M.end: col=(0xff,0,0)
             pygame.draw.rect(scn,col,px_)
             if (r_,c_) in s:
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
     f=pygame.font.SysFont("consolas",20)
-    strs,ofy=["Recenter","Show Path"],5
+    strs,ofy=["Recenter",("Show" if not rev else "Hide")+" Path","Restart"],5
     for _ in strs:
-        t=f.render(_,1,(0xff,0xff,0xff))
-        scn.blit(t,(v*px+5*px,px*ofy))
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+5*px,px*ofy))
         ofy+=10
 
-
-
-
 def main():
-    pygame.init()
-    pygame.font.init()
-    dims=(round(1e5**.5),round(1e5**.5)+1)
-    v,view=(0,0),(100,100) #tl/view tile  , viewport
-    px,run=10,1
+    pygame.init();pygame.font.init()
+    dims=(round(1e5**.5),round(1e5**.5)+1) #316,317
+    tl,view,px=(0,0),(100,100),10
+    px0=px*view[0]
+    vw,vh=view[0]*px,view[1]*px
+    pw=20*px #panel
+
+    run,rev=1,0
+    d,s=set(),set()
+    drag,mpos=0,(0,0)
+    (z0,z1)=1,1
+    zmin,zmax=.5,1.5
     #dims,px,run=(20,20),40,1
 
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    F,P=M.map(M.mid,M.fns(M.mid,())) #P0,P1=M.djik(M.mid,F)[1:]
+    M.map(M.mid,M.fns(M.mid,())) #P0,P1=M.djik(M.mid,F)[1:]
     print('start,end:\t',M.end)
-    djik,star=(M.gen_djik(M.mid,F),M.gen_star(M.mid,F))
+    djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
-        sv=v=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2))
-    scn=pygame.display.set_mode((view[0]*px+20*px,view[1]*px))
+        sv=tl=((M.mid[0]-view[0]/2,M.mid[1]-view[1]/2)) #float
+        #sv=tl=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2)) #this is less precise
+    scn=pygame.display.set_mode((view[0]*px+pw,view[1]*px))
+    pygame.display.set_caption("")
     clk=pygame.time.Clock()
-    d,s=set(),set()
-    drag,mpos=0,(0,0)
+
     while run:
         for event in pygame.event.get():
             if event.type==pygame.QUIT: run=False
@@ -167,26 +180,39 @@ def main():
                     except StopIteration:
                         pass
                     try:
-                        s.union(set(next(star)));print(d,s)
+                        s.union(set(next(star)))#;print(d,s)
                     except StopIteration:
                         pass
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
                 if (epos:=event.pos)[0]<view[0]*px:
                     drag,mpos=(1,event.pos)
-                elif epos[1]<10*px: v=sv
-                elif 10*px<epos[1]<20*px: print(1010)
-                        
-            elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0
+                elif epos[1]<10*px: tl=sv
+                elif 10*px<epos[1]<20*px:
+                    rev=not rev
+                elif 20*px<epos[1]<30*px:
+                    djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
+                    d,s=set(),set()
+
+            elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0 #drag
             elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<view[1]*px):
                 epos=event.pos
                 delt=epos[0]-mpos[0],epos[1]-mpos[1] #view delta
-                v=(v[0]-(delt[1]//px),v[1]-(delt[0]//px))
-                v=(max(0,v[0]),max(0,v[1]))
-                v=(min(dims[0]-view[0],v[0]),min(dims[1]-view[1],v[1]))
+                tl=(tl[0]-(delt[1]//px),tl[1]-(delt[0]//px))
+                tl=(max(0,tl[0]),max(0,tl[1]))
+                tl=(min(dims[0]-view[0],tl[0]),min(dims[1]-view[1],tl[1]))
                 mpos=epos
+
+            elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200
+                if ((epos:=pygame.mouse.get_pos())[0]<px0):
+                   v0=view[0]
+                   v1=round(min(max(50,v0*(.9 if (event.y>0) else 1.1)),200))
+                   view=(v1,)*2
         scn.fill((0,0,0))
         d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
-        render(M,v,d,s,scn,px)
+
+        #maze,topleft,dijk,astar,scrn,pxwidth,revealedstate,zoomratio
+        render(M,tl,d,s,scn,px,rev,z1,v=view[0])  
+
         pygame.display.flip()
         clk.tick(10)
     pygame.quit()
