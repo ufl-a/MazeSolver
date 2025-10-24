@@ -185,14 +185,15 @@ def main():
                     except StopIteration:
                         pass
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
-                if (epos:=event.pos)[0]<view[0]*px:
+                if (epos:=event.pos)[0]<px0:
                     drag,mpos=(1,event.pos)
-                elif epos[1]<10*px: tl=sv
-                elif 10*px<epos[1]<20*px:
-                    rev=not rev
-                elif 20*px<epos[1]<30*px:
-                    djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
-                    d,s=set(),set()
+                else:
+                    if epos[1]<10*px: tl=sv
+                    if 10*px<epos[1]<20*px:
+                      rev=not rev
+                    if 20*px<epos[1]<30*px:
+                        djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
+                        d,s=set(),set()
 
             elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0 #drag
             elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<view[1]*px):
@@ -203,8 +204,8 @@ def main():
                 tl=(min(dims[0]-view[0],tl[0]),min(dims[1]-view[1],tl[1]))
                 mpos=epos
 
-            elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200, (view doesn't really need to be tuple)
-                if ((epos:=pygame.mouse.get_pos())[0]<px0):
+            elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200
+                if ((epos:=pygame.mouse.get_pos())[0]<px0):#method of zooming while keeping cursor on a square
                    v0=view 
                    tw0,th0=(px0/v0[0]),(px0/v0[1])
                    cs0=(tl[0]+epos[0]/tw0,tl[1]+epos[1]/th0) #cursor's square=topleft+offset at given scaling
