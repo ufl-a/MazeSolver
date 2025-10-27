@@ -142,7 +142,8 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
           ("Show" if not rev else "Hide")+" Path","Restart",\
             "Complete" if not rch else "New Board",\
             "Run Finder" if not rf else "Take 50 Steps", \
-            "Resume" if stop else "Stop"]
+            "Resume" if stop else "Stop"
+          ]
     ofy=5
     stat=["DijkstraSquares:",str(len(d)),"A*Squares:",str(len(s))]
     for _ in strs:
@@ -264,7 +265,8 @@ def main():
                 if ((epos:=pygame.mouse.get_pos())[0]<px0):
                     v0=view 
                     tw0,th0=(px0/v0[0]),(px0/v0[1])
-                    cs0=(tl[0]+epos[0]/tw0,tl[1]+epos[1]/th0) #cursor's square=topleft+offset at given scaling
+                    cs0=(tl[0]+epos[1]/tw0,tl[1]+epos[0]/th0) #cursor's square=topleft+offset at given scaling
+                    cs0=(min(max(0,cs0[0]),float(M.R)),(min(max(0,cs0[1]),float(M.C))))
                     #cs0=(min(max(0,cs0[0]),M.R-px0/px),min(max(0,cs0[1]),M.C-px0/px))
                     v1=round(min(max(50,v0[0]*(.9 if (event.y>0) else 1.1)),200))
                     if v0!=v1:
@@ -274,7 +276,6 @@ def main():
         scn.fill((0,0,0))
         #d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
         if rf and not stop:step()
-
         #args: maze,topleft,dijk,astar,scrn,pxwidth,revealedstate,zoomratio
         render(M,tl,d,s,scn,px,rev,z1,v=view[0])  
 
