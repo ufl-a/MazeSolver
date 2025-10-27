@@ -176,8 +176,10 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
 def main():
+
     global d,s,rch,fd,px0,rf,stop
     pygame.init();pygame.font.init()
+
     dims=(round(1e5**.5),round(1e5**.5)+1) #316,317
     tl,view,px=(0,0),(100,100),10 # viewport:(100,100)
     px0=px*view[0]
@@ -201,7 +203,13 @@ def main():
         #sv=tl=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2)) #this is less precise
     scn=pygame.display.set_mode((view[0]*px+pw,view[1]*px))
     pygame.display.set_caption("")
-    clk=pygame.time.Clock()
+    ######
+    cmp_thread,stop_evt=None,threading.Event(); #cmp_thread for BOARD_COMPLETE task
+    def slave(): 
+        global rch
+        while (not rch) and stop_evt.is_set():
+            step()
+    ######
 
     def step(): #if reached, show path
         global d,s,rch
@@ -214,6 +222,7 @@ def main():
         except StopIteration:
             rch=1;return out
 
+    clk=pygame.time.Clock()
     while run:
         for event in pygame.event.get():
             if event.type==pygame.QUIT: 
@@ -233,8 +242,11 @@ def main():
                         djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
                         d,s,rch,stop,rf=set(),set(),0,0
                     if 20*px<epos[1]<25*px: 
-                        while not rch:
-                            step()
+                        if solver_thread is None or not solver_thread.is_alive():
+                            stop_event.clear()
+                            solver_thread = threading.Thread(target=solve_to_completion, daemon=True)
+                            solver_thread.start()
+                        #while not rch: step()
                     if 25*px<epos[1]<30*px: 
                         if (not rf):
                             rf=1
