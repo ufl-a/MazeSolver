@@ -4,9 +4,48 @@ Algos Used:
 https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
 
-from flask import Flask, render_template_string
-import random,heapq,pygame,sys,math,threading,time
+import random,pygame,sys,math,threading,time
+
+##for debug
 e=sys.exit
+##
+class heapq: #mostly copied from std module
+    def ripple_up(heap,pos):
+        end=len(heap)
+        start=pos
+        inserted_item=heap[pos]
+        cidx=2*pos+1
+        while cidx<end:
+            rcidx=cidx+1
+            if rcidx<end and not (heap[cidx]<heap[rcidx]):
+                cidx=rcidx
+            heap[pos]=heap[cidx]
+            pos=cidx
+            cidx=2*pos+1
+        heap[pos]=inserted_item
+        heapq.ripple_down(heap,start,pos)
+    def ripple_down(heap,start,pos):
+        inserted_item=heap[pos]
+        while start<pos:#adjust 'pos', where inserted_item is eventually placed
+            pidx=(pos-1)>>1 #since cidx=2*pidx+1
+            if (par:=heap[pidx])>inserted_item:
+                heap[pos]=par 
+                pos=pidx #moving up.
+                continue
+            break
+        heap[pos]=inserted_item
+    def heappush(heap,item):
+        heap.append(item)
+        heapq.ripple_down(heap,0,len(heap)-1)
+    def heappop(heap):
+        last=heap.pop()
+        if len(heap):
+            ret=heap[0]
+            heap[0]=last
+            heapq.ripple_up(heap,0)
+            return ret
+        return last
+
 class Maze: 
     def __init__(self,r,c):
         self.R=r; self.C=c;
