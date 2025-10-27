@@ -17,7 +17,7 @@ class heapq: #mostly copied from std module; this is a minheap.
             rcidx=cidx+1
             if rcidx<end and not (heap[cidx]<heap[rcidx]):
                 cidx=rcidx
-            heap[pos]=heap[cidx] #check children,and swap with the largest
+            heap[pos]=heap[cidx] #check children,and swap with the smaller 
             pos=cidx
             cidx=2*pos+1 #moving down.
         heap[pos]=inserted_item
@@ -103,7 +103,6 @@ class Maze:
                 h=heur((dest,sq))
                 heapq.heappush(op,(top[0]+1+h,h,sq,node)); 
                 pars[sq]=node
-                vis.add(sq)
                 ys.append(sq)
             #ys.append(node)#;print(ys)
             yield ys,len(ys)
@@ -202,6 +201,7 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
                     else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
                     else (0xff,0x10,0xf0) if (rev and rc in M.path and rc not in d) else (0xee,0xee,0)
 
+            if (r_,c_)==M.mid: col=(0x80,0,0x80)
             if (r_,c_)==M.end: col=(0xff,0,0)
             pygame.draw.rect(scn,col,px_)
             if (r_,c_) in s:
@@ -323,12 +323,9 @@ def main():
                         tl=(cs0[0]-epos[0]/tw1,cs0[1]-epos[1]/th1) # adjust top-left relative to cs and ss
                         tl=(max(0,min(M.R-view[0],tl[0])),(max(0,min(M.R-view[1],tl[1]))))
         scn.fill((0,0,0))
-        #d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
-        #if rf and not stop:step()
         #args: maze,topleft,dijk,astar,scrn,pxwidth,revealedstate,zoomratio
         render(M,tl,d,s,scn,px,rev,z1,v=view[0])  
         #render(M,tl,d,s,scn,px,rev,z1,v=20) ###DEBUG DIMS=20
-
         pygame.display.flip()
         clk.tick(10)
     pygame.quit()
