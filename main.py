@@ -5,10 +5,8 @@ https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
 
 from flask import Flask, render_template_string
-import random,heapq,pygame,sys,math,threading
+import random,heapq,pygame,sys,math,threading,time
 e=sys.exit
-
-
 class Maze: 
     def __init__(self,r,c):
         self.R=r; self.C=c;
@@ -176,8 +174,8 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
 def main():
-
     global d,s,rch,fd,px0,rf,stop
+    solver_thread = None
     pygame.init();pygame.font.init()
 
     dims=(round(1e5**.5),round(1e5**.5)+1) #316,317
@@ -204,11 +202,12 @@ def main():
     scn=pygame.display.set_mode((view[0]*px+pw,view[1]*px))
     pygame.display.set_caption("")
     ######
-    cmp_thread,stop_evt=None,threading.Event(); #cmp_thread for BOARD_COMPLETE task
-    def slave(): 
+    cmp_T,stop_E=None,threading.Event(); #cmp_thread for BOARD_COMPLETE task
+    def cmpl(): 
         global rch
-        while (not rch) and stop_evt.is_set():
+        while (not rch) and (not stop_E.is_set()):
             step()
+            time.sleep(0)
     ######
 
     def step(): #if reached, show path
@@ -240,12 +239,11 @@ def main():
                         rev=not rev
                     if 15*px<epos[1]<20*px: #new board/compl.
                         djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
-                        d,s,rch,stop,rf=set(),set(),0,0
+                        d,s,rch,stop,rf=set(),set(),0,0,0
                     if 20*px<epos[1]<25*px: 
                         if solver_thread is None or not solver_thread.is_alive():
-                            stop_event.clear()
-                            solver_thread = threading.Thread(target=solve_to_completion, daemon=True)
-                            solver_thread.start()
+                            stop_E.clear()
+                            threading.Thread(target=cmp_T,daemon=True).start()
                         #while not rch: step()
                     if 25*px<epos[1]<30*px: 
                         if (not rf):
