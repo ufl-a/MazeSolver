@@ -232,7 +232,7 @@ def main():
 
     heurs=[
           lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
-          lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[1][0]-xy[1][1])),
+          lambda xy: (abs(M.end[0]-xy[0])+abs(M.end[1]-xy[1]))
         ]
     heur=0
     run,rev,rch,stop=1,0,0,0
