@@ -141,7 +141,7 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
     strs=["Recenter", \
           ("Show" if not rev else "Hide")+" Path","Restart",\
             "Complete" if not rch else "New Board",\
-            "Run Finder" if not rf else "Take 50 Steps", \
+            "Take 50 Steps", \
             "Resume" if stop else "Stop"
           ]
     ofy=5
@@ -174,17 +174,18 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
 def main():
-    global d,s,rch,fd,px0,rf,stop
+    global d,s,rch,fd,px0,stop
     solver_thread = None
     pygame.init();pygame.font.init()
 
     dims=(round(1e5**.5),round(1e5**.5)+1) #316,317
+    #dims=(20,20) ##DEBUG
     tl,view,px=(0,0),(100,100),10 # viewport:(100,100)
     px0=px*view[0]
     vw,vh=view[0]*px,view[1]*px
     pw=20*px #panel
 
-    run,rev,rch,rf,stop=1,0,0,0,0
+    run,rev,rch,stop=1,0,0,0
     d,s=set(),set()
     fd,fs=[],[] #found path
     drag,mpos=0,(0,0)
@@ -201,13 +202,21 @@ def main():
         #sv=tl=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2)) #this is less precise
     scn=pygame.display.set_mode((view[0]*px+pw,view[1]*px))
     pygame.display.set_caption("")
+
     ######
-    cmp_T,stop_E=None,threading.Event(); #cmp_thread for BOARD_COMPLETE task
+    res_E=threading.Event(); #complete thread for BOARD_COMPLETE task
+    res_E.set()
+    cmpl_T=None
     def cmpl(): 
         global rch
-        while (not rch) and (not stop_E.is_set()):
+        while (not rch):
+            for _ in range(10):
+                #stop_E.wait()
+                res_E.wait()
+                if rch or res_E.is_set():
+                    break
             step()
-            time.sleep(0)
+            time.sleep(0.001)
     ######
 
     def step(): #if reached, show path
@@ -239,19 +248,23 @@ def main():
                         rev=not rev
                     if 15*px<epos[1]<20*px: #new board/compl.
                         djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
-                        d,s,rch,stop,rf=set(),set(),0,0,0
+                        d,s,rch,stop=set(),set(),0,0
+                        if cmpl_T and cmpl_T.is_alive():
+                            cmpl_T.join(timeout=.1)
+                            cmpl_T=None
+                        cmpl_T=None
+
                     if 20*px<epos[1]<25*px: 
-                        if solver_thread is None or not solver_thread.is_alive():
-                            stop_E.clear()
-                            threading.Thread(target=cmp_T,daemon=True).start()
-                        #while not rch: step()
+                        if cmpl_T is None or not cmpl_T.is_alive() and not stop:
+                            res_E.set()
+                            cmpl_T=threading.Thread(target=cmpl,daemon=True)
+                            cmpl_T.start()
                     if 25*px<epos[1]<30*px: 
-                        if (not rf):
-                            rf=1
-                        else:
-                            for _ in range(50): step()
-                    if 30*px<epos[1]<35*px and rf: 
+                        for _ in range(50): step()
+                    if 30*px<epos[1]<35*px and (cmpl_T is not None):
                         stop=not stop
+                        if stop: res_E.clear() 
+                        else: res_E.set() 
 
             elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0 #drag
             elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<px0):
@@ -278,9 +291,10 @@ def main():
                         tl=(max(0,min(M.R-view[0],tl[0])),(max(0,min(M.R-view[1],tl[1]))))
         scn.fill((0,0,0))
         #d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
-        if rf and not stop:step()
+        #if rf and not stop:step()
         #args: maze,topleft,dijk,astar,scrn,pxwidth,revealedstate,zoomratio
         render(M,tl,d,s,scn,px,rev,z1,v=view[0])  
+        #render(M,tl,d,s,scn,px,rev,z1,v=20) ###DEBUG DIMS=20
 
         pygame.display.flip()
         clk.tick(10)
