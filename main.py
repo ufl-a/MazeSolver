@@ -183,14 +183,15 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
           ("Show" if not rev else "Hide")+" Path","Restart",\
             "Complete" if not rch else "New Board",\
             "Take 50 Steps", \
-            "Resume" if stop else "Stop"
+            "Resume" if stop else "Stop",
+          "Heuristic:"
           ]
     ofy=5
-    stat=["DijkstraSquares:",str(len(d)),"A*Squares:",str(len(s)),"Heuristic:",["Euclidian","Manhattan"][heur]]
+    stat=["DijkstraSquares:",str(len(d)),"A*Squares:",str(len(s)),"Current Heur:",["Euclidian","Manhattan"][heur]]
     for _ in strs:
         scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+2*10,10*ofy))
         ofy+=5
-    sprite.arrow_pair(scn,0xffffff,(px0+pw//2,10*ofy),10,10,4)
+    sprite.arrow_pair(scn,0xffffff,(px0+pw//2,10*ofy),20,10,4)
     ofy+=5
     for _ in stat:
         scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+2*10,10*ofy))
@@ -232,7 +233,7 @@ def main():
 
     heurs=[
           lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
-          lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[1][0]-xy[1][1])),
+          lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[0][1]-xy[1][1])),
         ]
     heur=0
     run,rev,rch,stop=1,0,0,0
