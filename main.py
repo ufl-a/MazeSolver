@@ -5,11 +5,9 @@ https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
 
 import random,pygame,sys,math,threading,time
+e=sys.exit #for debug
 
-##for debug
-e=sys.exit
-##
-class heapq: #mostly copied from std module
+class heapq: #mostly copied from std module; this is a minheap.
     def ripple_up(heap,pos):
         end=len(heap)
         start=pos
@@ -19,12 +17,12 @@ class heapq: #mostly copied from std module
             rcidx=cidx+1
             if rcidx<end and not (heap[cidx]<heap[rcidx]):
                 cidx=rcidx
-            heap[pos]=heap[cidx]
+            heap[pos]=heap[cidx] #check children,and swap with the largest
             pos=cidx
-            cidx=2*pos+1
+            cidx=2*pos+1 #moving down.
         heap[pos]=inserted_item
         heapq.ripple_down(heap,start,pos)
-    def ripple_down(heap,start,pos):
+    def ripple_down(heap,start,pos):#start from end.
         inserted_item=heap[pos]
         while start<pos:#adjust 'pos', where inserted_item is eventually placed
             pidx=(pos-1)>>1 #since cidx=2*pidx+1
@@ -81,21 +79,19 @@ class Maze:
            #ys.append(pos)
         return -1,[],[]
 
-    def gen_star(self,src=None,dest=None): 
+    def gen_star(self,src=None,dest=None,heur=None): 
         global fs
         if src is None: src = self.mid
         if dest is None: dest = self.end;print(src,dest)
 
-        op,cl,path,pars=[(0,0,src,None)],set(),[],{src:None} #op: (real,heur,node,par)
-        vis={src}
-        heur=lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2) #euclidian dist
+        op,cl,path,pars=[(0,0,src,None)],set(),[],{src:None} #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
+        if not heur:heur=lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2) #euclidian dist
         fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
 
         while len(op):
             top=heapq.heappop(op)#;print(top[1])
-            ys=[]
+            ys=[] #yields, added to s()
             node=top[2]
-            if node in cl: continue
             cl.add(node)
             if node==dest:
                 ret,r=[],pars[dest]
@@ -127,7 +123,6 @@ class Maze:
         if n[1]+1<self.C and self.B[n[0]][n[1]+1] and ((r:=(n[0], n[1]+1)) not in fs):ret.append(r)
         if n[1]-1>=0 and self.B[n[0]][n[1]-1] and ((r:=(n[0], n[1]-1)) not in fs):ret.append(r)
         return ret
-
 
     def map(self,p,f): #prims algo,p=path,f=frontiers
         path={p:None}
@@ -279,11 +274,11 @@ def main():
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
                 if (epos:=event.pos)[0]<px0:
                     drag,mpos=(1,event.pos)
-                else:#panel functions
-                    if epos[1]<5*px: tl=sv
-                    if 5*px<epos[1]<10*px:
+                else:       # ~~~~~~~~~~  panel functions
+                    #if epos[1]<5*px: tl=sv 
+                    if 5*px<epos[1]<10*px: # recenter
                         tl=sv
-                    if 10*px<epos[1]<15*px:
+                    if 10*px<epos[1]<15*px: # showpath
                         rev=not rev
                     if 15*px<epos[1]<20*px: #new board/compl.
                         djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
@@ -292,15 +287,14 @@ def main():
                             cmpl_T.join(timeout=.1)
                             cmpl_T=None
                         cmpl_T=None
-
-                    if 20*px<epos[1]<25*px: 
+                    if 20*px<epos[1]<25*px: #complete (threadcall)
                         if cmpl_T is None or not cmpl_T.is_alive() and not stop:
                             res_E.set()
                             cmpl_T=threading.Thread(target=cmpl,daemon=True)
                             cmpl_T.start()
-                    if 25*px<epos[1]<30*px: 
+                    if 25*px<epos[1]<30*px: # N-steps
                         for _ in range(50): step()
-                    if 30*px<epos[1]<35*px and (cmpl_T is not None):
+                    if 30*px<epos[1]<35*px and (cmpl_T is not None): # unset resume. Complete thread awaits reset. 
                         stop=not stop
                         if stop: res_E.clear() 
                         else: res_E.set() 
