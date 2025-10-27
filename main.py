@@ -6,6 +6,7 @@ https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 
 from flask import Flask, render_template_string
 import random,heapq,pygame,sys,math
+e=sys.exit
 
 class Maze: 
     def __init__(self,r,c):
@@ -19,7 +20,10 @@ class Maze:
     def put(self,idx,num): self.B[idx[0]][idx[1]]=num
     def sum2(self,t0,t1):return (t0[0]+t1[0],t0[1]+t1[1])
 
-    def gen_djik(self,src,dest):
+    def gen_djik(self,src=None,dest=None):
+        global fd
+        if src is None: src = self.mid
+        if dest is None: dest = self.end
         ys,heap,visit,cost=[],[],set(),0
         heapq.heappush(heap,(cost,src,[]))
         filt=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]]) and ((rc[0],rc[1]) not in visit)
@@ -27,37 +31,48 @@ class Maze:
            (cost,pos,path)=heapq.heappop(heap) 
            ys=[]
            for sq in (ns:=filter(filt,self.ns(pos))):
-               if sq==dest: return (cost,path+[dest],visit)
                visit.add(sq)
                ys.append(sq)
+               if sq==dest: 
+                   fd=path+[dest] #return (cost,path+[dest],visit)
+                   yield ys,len(ys)
+                   return fd
                heapq.heappush(heap,(cost+1,sq,path+[sq]))
            #print(heap)
-           ys.append(pos)
-           yield ys 
+           yield ys,len(ys)
+           #ys.append(pos)
         return -1,[],[]
 
     def gen_star(self,src=None,dest=None): 
+        global fs
         if src is None: src = self.mid
-        if dest is None: dest = self.end
-        print(src,dest)
+        if dest is None: dest = self.end;print(src,dest)
+
+        op,cl,vis,path,pars=[(0,0,src,None)],set(),set(src),[],{src:None} #op: (real,heur,node,par)
         heur=lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2) #euclidian dist
-        op,cl,path,pars=[(0,0,src,None)],set(),[],{src:None} #op: (real,heur,node,par)
         fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
+
         while len(op):
             top=heapq.heappop(op)#;print(top[1])
             ys=[]
-            if top[2]==dest:
+            node=top[2]
+            if node in cl: continue
+            cl.add(node)
+            if node==dest:
                 ret,r=[],pars[dest]
                 while r!=None: ret.append(r);r=pars[r]
+                yield [],0
                 return ret
-            for sq in filter(fil,self.ns(top[2])):
+            ys=[]
+            for sq in filter(fil,self.ns(node)):
                 h=heur((dest,sq))
-                heapq.heappush(op,(top[0]+1+h,h,sq,top[2])); 
-                pars[sq]=top[2]
+                heapq.heappush(op,(top[0]+1+h,h,sq,node)); 
+                pars[sq]=node
+                vis.add(node)
                 ys.append(sq)
-            ys.append(top[2])#;print(ys)
-            yield ys
-            cl.add(top[2])
+            ys.append(node)#;print(ys)
+            yield ys,len(ys)
+            cl.add(node)
         return list(cl)
 
     def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
@@ -117,17 +132,38 @@ class sprite:
             ]
         for (a,b) in tos: pygame.draw.line(scn,clr,a,b,wid)
 
-def render(M,tl,d,s,scn,px,rev,zm,v=100,winW=1000,ft="arial",fts=20): 
+def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20): 
     #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
-    px=winW/v
+    global px0,rf,stop
+    px=px0/v
     f=pygame.font.SysFont("consolas",20)
-    strs,ofy=["Recenter",("Show" if not rev else "Hide")+" Path","Restart"],5
+    strs=["Recenter", \
+          ("Show" if not rev else "Hide")+" Path","Restart",\
+            "Complete" if not rch else "New Board",\
+            "Run Finder" if not rf else "Take 50 Steps", \
+            "Resume" if stop else "Stop"]
+    ofy=5
+    stat=["DijkstraSquares:",str(len(d)),"A*Squares:",str(len(s))]
     for _ in strs:
-        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+5*10,10*ofy))
-        ofy+=10
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+2*10,10*ofy))
+        ofy+=5
+    for _ in stat:
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+2*10,10*ofy))
+        ofy+=3
+
     (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
     U=d.union(s)
+    # after computing R,C; add viewport-safe extents (prevents OOB)
+    vr = min(v, max(0, M.R - R))
+    vc = min(v, max(0, M.C - C))
+    
+    U = d.union(s)
+    
+    # >>> DEBUG counters:
+    total_U = len(U)
+    visible_U = sum(1 for rr in range(vr) for cc in range(vc) if (R+rr, C+cc) in U)
+
     #st=(max(0,int(math.floor(tl[0]))),max(0,int(math.floor(tl[1]))))
     #end=(min(M.R,st[0]+v+1),min(M.C,st[1]+v+1))
     #for r in range(st[0],end[0]): #alternatively, we could do a loop like this
@@ -139,22 +175,25 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,winW=1000,ft="arial",fts=20):
             #print(M.path);exit()
             col=(0xff,0xff,0xff) if M.B[r_][c_] \
                     else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
-                    else (0,0,0xff) if (rev and rc in M.path and rc not in d) else (0xee,0xee,0)
+                    else (0xff,0x10,0xf0) if (rev and rc in M.path and rc not in d) else (0xee,0xee,0)
+
             if (r_,c_)==M.end: col=(0xff,0,0)
             pygame.draw.rect(scn,col,px_)
             if (r_,c_) in s:
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
 def main():
+    global d,s,rch,fd,px0,rf,stop
     pygame.init();pygame.font.init()
     dims=(round(1e5**.5),round(1e5**.5)+1) #316,317
-    tl,view,px=(0,0),(100,100),10
+    tl,view,px=(0,0),(100,100),10 # viewport:(100,100)
     px0=px*view[0]
     vw,vh=view[0]*px,view[1]*px
     pw=20*px #panel
 
-    run,rev=1,0
+    run,rev,rch,rf,stop=1,0,0,0,0
     d,s=set(),set()
+    fd,fs=[],[] #found path
     drag,mpos=0,(0,0)
     (z0,z1)=1,1
     zmin,zmax=.5,1.5
@@ -171,52 +210,72 @@ def main():
     pygame.display.set_caption("")
     clk=pygame.time.Clock()
 
+    def step(): #if reached, show path
+        global d,s,rch
+        try:
+            d=d.union(set((out:=(next(djik)))[0]))
+        except StopIteration:
+            rch=1;return out
+        try:
+            s=s.union(set((out:=(next(star)))[0]))
+        except StopIteration:
+            rch=1;return out
+
     while run:
         for event in pygame.event.get():
-            if event.type==pygame.QUIT: run=False
-            if event.type==pygame.KEYDOWN:
-                if event.key==pygame.K_w: 
-                    try:
-                        d=d.union(set(next(djik)))
-                    except StopIteration:
-                        pass
-                    try:
-                        s.union(set(next(star)))#;print(d,s)
-                    except StopIteration:
-                        pass
+            if event.type==pygame.QUIT: 
+                run=False
+            elif event.type==pygame.KEYDOWN:
+                if event.key==pygame.K_w:step()
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
                 if (epos:=event.pos)[0]<px0:
                     drag,mpos=(1,event.pos)
-                else:
-                    if epos[1]<10*px: tl=sv
-                    if 10*px<epos[1]<20*px:
-                      rev=not rev
-                    if 20*px<epos[1]<30*px:
+                else:#panel functions
+                    if epos[1]<5*px: tl=sv
+                    if 5*px<epos[1]<10*px:
+                        tl=sv
+                    if 10*px<epos[1]<15*px:
+                        rev=not rev
+                    if 15*px<epos[1]<20*px: #new board/compl.
                         djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
-                        d,s=set(),set()
+                        d,s,rch,stop,rf=set(),set(),0,0
+                    if 20*px<epos[1]<25*px: 
+                        while not rch:
+                            step()
+                    if 25*px<epos[1]<30*px: 
+                        if (not rf):
+                            rf=1
+                        else:
+                            for _ in range(50): step()
+                    if 30*px<epos[1]<35*px and rf: 
+                        stop=not stop
 
             elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0 #drag
-            elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<view[1]*px):
+            elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<px0):
                 epos=event.pos
                 delt=epos[0]-mpos[0],epos[1]-mpos[1] #view delta
                 tl=(tl[0]-(delt[1]/px),tl[1]-(delt[0]/px))
                 tl=(max(0,tl[0]),max(0,tl[1]))
-                tl=(min(dims[0]-view[0],tl[0]),min(dims[1]-view[1],tl[1]))
+                tl=(min(dims[0]-(mxv:=max(view)),tl[0]),min(dims[1]-mxv,tl[1]))
                 mpos=epos
 
             elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200
-                if ((epos:=pygame.mouse.get_pos())[0]<px0):#method of zooming while keeping cursor on a square
-                   v0=view 
-                   tw0,th0=(px0/v0[0]),(px0/v0[1])
-                   cs0=(tl[0]+epos[0]/tw0,tl[1]+epos[1]/th0) #cursor's square=topleft+offset at given scaling
-                   v1=round(min(max(50,v0[0]*(.9 if (event.y>0) else 1.1)),200))
-                   view=(v1,)*2;#print(view)
-                   tw1,th1=px0/view[0],px0/view[1]
-                   tl=(cs0[0]-epos[0]/tw1,cs0[1]-epos[1]/th1)
+                #method of zooming while keeping cursor on a square
+                if ((epos:=pygame.mouse.get_pos())[0]<px0):
+                    v0=view 
+                    tw0,th0=(px0/v0[0]),(px0/v0[1])
+                    cs0=(tl[0]+epos[0]/tw0,tl[1]+epos[1]/th0) #cursor's square=topleft+offset at given scaling
+                    #cs0=(min(max(0,cs0[0]),M.R-px0/px),min(max(0,cs0[1]),M.C-px0/px))
+                    v1=round(min(max(50,v0[0]*(.9 if (event.y>0) else 1.1)),200))
+                    if v0!=v1:
+                        view=(v1,)*2;#print(view)
+                        tw1,th1=px0/view[0],px0/view[1] # new square size (ss)
+                        tl=(cs0[0]-epos[0]/tw1,cs0[1]-epos[1]/th1) # adjust top-left relative to cs and ss
         scn.fill((0,0,0))
-        d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
+        #d,s=d.union(set(next(djik))),s.union(set(next(star)))#;print(d,s)
+        if rf and not stop:step()
 
-        #maze,topleft,dijk,astar,scrn,pxwidth,revealedstate,zoomratio
+        #args: maze,topleft,dijk,astar,scrn,pxwidth,revealedstate,zoomratio
         render(M,tl,d,s,scn,px,rev,z1,v=view[0])  
 
         pygame.display.flip()
