@@ -5,8 +5,9 @@ https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
 
 from flask import Flask, render_template_string
-import random,heapq,pygame,sys,math
+import random,heapq,pygame,sys,math,threading
 e=sys.exit
+
 
 class Maze: 
     def __init__(self,r,c):
@@ -48,7 +49,8 @@ class Maze:
         if src is None: src = self.mid
         if dest is None: dest = self.end;print(src,dest)
 
-        op,cl,vis,path,pars=[(0,0,src,None)],set(),set(src),[],{src:None} #op: (real,heur,node,par)
+        op,cl,path,pars=[(0,0,src,None)],set(),[],{src:None} #op: (real,heur,node,par)
+        vis={src}
         heur=lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2) #euclidian dist
         fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
 
@@ -68,9 +70,9 @@ class Maze:
                 h=heur((dest,sq))
                 heapq.heappush(op,(top[0]+1+h,h,sq,node)); 
                 pars[sq]=node
-                vis.add(node)
+                vis.add(sq)
                 ys.append(sq)
-            ys.append(node)#;print(ys)
+            #ys.append(node)#;print(ys)
             yield ys,len(ys)
             cl.add(node)
         return list(cl)
@@ -155,16 +157,6 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
 
     (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
     U=d.union(s)
-    # after computing R,C; add viewport-safe extents (prevents OOB)
-    vr = min(v, max(0, M.R - R))
-    vc = min(v, max(0, M.C - C))
-    
-    U = d.union(s)
-    
-    # >>> DEBUG counters:
-    total_U = len(U)
-    visible_U = sum(1 for rr in range(vr) for cc in range(vc) if (R+rr, C+cc) in U)
-
     #st=(max(0,int(math.floor(tl[0]))),max(0,int(math.floor(tl[1]))))
     #end=(min(M.R,st[0]+v+1),min(M.C,st[1]+v+1))
     #for r in range(st[0],end[0]): #alternatively, we could do a loop like this
@@ -265,7 +257,7 @@ def main():
                 if ((epos:=pygame.mouse.get_pos())[0]<px0):
                     v0=view 
                     tw0,th0=(px0/v0[0]),(px0/v0[1])
-                    cs0=(tl[0]+epos[1]/tw0,tl[1]+epos[0]/th0) #cursor's square=topleft+offset at given scaling
+                    cs0=(tl[0]+epos[0]/tw0,tl[1]+epos[1]/th0) #cursor's square=topleft+offset at given scaling
                     cs0=((min(max(0,cs0[0]),M.R)),(min(max(0,cs0[1]),M.C)))
                     #cs0=(min(max(0,cs0[0]),M.R-px0/px),min(max(0,cs0[1]),M.C-px0/px))
                     v1=round(min(max(50,v0[0]*(.9 if (event.y>0) else 1.1)),200))
