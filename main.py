@@ -153,6 +153,12 @@ class Maze:
         self.path=ret
         return s,ret
 
+    def map_d(self,p,f):
+        pass
+
+    def map_b(self,p,f):
+        pass
+
 class sprite:
     def star(scn,clr,mid,px,wid):
         to,(x,y)=px//4,mid
@@ -173,35 +179,41 @@ class sprite:
              ]
         for (a,b) in tos: pygame.draw.line(scn,clr,a,b,wid)
 
-def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20): 
+def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
     #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
-    global px0,pw,rf,stop,heur
-    px=px0/v
+    global px0,pw,rf,stop,heur,mgen,ofx
     f=pygame.font.SysFont("consolas",20)
     strs=["Recenter", \
           ("Show" if not rev else "Hide")+" Path","Restart",\
             "Complete" if not rch else "New Board",\
             "Take 50 Steps", \
             "Resume" if stop else "Stop",
-          "Heuristic:"
-          ]
-    ofy=5
-    stat=["DijkstraSquares:",str(len(d)),"A*Squares:",str(len(s)),"Current Heur:",["Euclidian","Manhattan"][heur]]
+    ]
+          
+    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prims","DFS"][mgen]}",]
+    txt=["DijkstraSquares:",str(len(d)),"A*Squares:",str(len(s)),]
+
+    px=10#consant px for panel
+    ofy=5*px
     for _ in strs:
-        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+2*10,10*ofy))
-        ofy+=5
-    sprite.arrow_pair(scn,0xffffff,(px0+pw//2,10*ofy),20,10,4)
-    ofy+=5
-    for _ in stat:
-        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(v*px+2*10,10*ofy))
-        ofy+=3
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy))
+        ofy+=5*px
+    #sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4) #heur
+    #sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4) #maze
+    for _ in arrs:
+        sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4) 
+        ofy+=20
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy))
+        ofy+=50
 
     (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
     U=d.union(s)
     #st=(max(0,int(math.floor(tl[0]))),max(0,int(math.floor(tl[1]))))
     #end=(min(M.R,st[0]+v+1),min(M.C,st[1]+v+1))
     #for r in range(st[0],end[0]): #alternatively, we could do a loop like this
+
+    px=px0/v #variable px
     for r in range(v):
         r_=R+r #real row/col 
         for c in range(v):
@@ -219,23 +231,28 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
 def main():
-    global d,s,rch,fd,px0,stop,pw,heur,heurs
+    global d,s,rch,fd,px0,stop,pw,heur,heurs,mgen,ofx,ofy
+    #d-tiles,s-tiles,reached end,found path-dijk,display-window width,
+    #stop execution,panel width,heuristic index(int),heur lambda list,
+    #display offset(x,y)
+    
     dbug=len(sys.argv)>1
     solver_thread = None
     pygame.init();pygame.font.init()
 
-    dims=(round(1e5**.5),round(1e5**.5)+1) #316,317
-    if dbug: dims=(20,20) ##DEBUG
+    dims=(round(1e5**.5),round(1e5**.5)+1) if not dbug else (20,20) #316,317
     tl,view,px=(0,0),(100,100),10 # viewport:(100,100)
     px0=px*view[0]
     vw,vh=view[0]*px,view[1]*px
     pw=20*px #panel
+    ofx=px0
 
     heurs=[
           lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
           lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[0][1]-xy[1][1])),
         ]
-    heur=0
+    mgens=['prims','dfs']
+    heur,mgen=0,0
     run,rev,rch,stop=1,0,0,0
     d,s=set(),set()
     fd,fs=[],[] #found path
@@ -297,26 +314,40 @@ def main():
                         tl=sv
                     if 10*px<epos[1]<15*px: # showpath
                         rev=not rev
-                    if 15*px<epos[1]<20*px: #new board/compl.
+                    if 15*px<epos[1]<20*px: #restart/compl.
                         djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
                         d,s,rch,stop=set(),set(),0,0
                         if cmpl_T and cmpl_T.is_alive():
                             cmpl_T.join(timeout=.1)
                             cmpl_T=None
+
                         cmpl_T=None
-                    if 20*px<epos[1]<25*px: #complete (threadcall)
+                    if 20*px<epos[1]<25*px: #regen/complete (threadcall)
+                        if rch:
+                            res_E.clear();stop=1
+                            if cmpl_T is None and cmpl_T.is_alive():
+                                cmpl_T.join(timeout=.1)
+                                cmpl_T=None
+                            M.B=[[1 for j in range(0,M.C)] for i in range(0,M.R)]
+                            M.map(M.mid,M.fns(M.mid,()))
+                            djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
+                            d,s,rch,stop=set(),set(),0,0
+                            continue
                         if cmpl_T is None or not cmpl_T.is_alive() and not stop:
                             res_E.set()
                             cmpl_T=threading.Thread(target=cmpl,daemon=True)
                             cmpl_T.start()
+
                     if 25*px<epos[1]<30*px: # N-steps
                         for _ in range(50): step()
-                    if 30*px<epos[1]<35*px and (cmpl_T is not None): # unset resume. Complete thread awaits reset. 
+                    if 30*px<epos[1]<32*px and (cmpl_T is not None): # unset resume. Complete thread awaits (re)set.
                         stop=not stop
                         if stop: res_E.clear() 
                         else: res_E.set() 
-                    if epos[0]<px0+pw//2 and 35*px<epos[1]<40*px: heur=(heur-1)%len(heurs)
-                    if epos[0]>(px0+pw//2) and 35*px<epos[1]<40*px: heur=(heur+1)%len(heurs)
+                    if 3*px<epos[1]<40*px: 
+                        heur=(heur+(-1 if epos[0]<ofx else 1))%len(heurs)
+                    if 40*px<epos[1]<45*px: 
+                        mgen=(mgen+(-1 if epos[0]<ofx else 1))%len(mgens)
 
             elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0 #drag
             elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<px0):
