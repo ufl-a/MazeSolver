@@ -245,7 +245,7 @@ def main():
     px0=px*view[0]
     vw,vh=view[0]*px,view[1]*px
     pw=20*px #panel
-    ofx=px0
+    ofx=px0+15
 
     heurs=[
           lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
