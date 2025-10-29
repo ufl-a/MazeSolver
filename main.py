@@ -263,8 +263,8 @@ def main():
     #dims,px,run=(20,20),40,1
 
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    #M.map(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)
-    M.mapdfs(M.mid,0);#print('start,end:\t',M.end)
+    M.map(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)
+    #M.mapdfs(M.mid,0);#print('start,end:\t',M.end)
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
 
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
