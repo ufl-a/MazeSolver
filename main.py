@@ -262,16 +262,15 @@ def main():
     #dims,px,run=(20,20),40,1
 
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    M.map(M.mid,M.fns(M.mid,())) #P0,P1=M.djik(M.mid,F)[1:]
-    print('start,end:\t',M.end)
+    M.map(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
+
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
         sv=tl=((M.mid[0]-view[0]/2,M.mid[1]-view[1]/2)) #float
-        #sv=tl=((M.mid[0]-view[0]//2,M.mid[1]-view[1]//2)) #this is less precise
+
     scn=pygame.display.set_mode((view[0]*px+pw,view[1]*px))
     pygame.display.set_caption("")
 
-    ######  
     res_E=threading.Event(); #cmpl_T thread for COMPLETE task
     res_E.set()
     cmpl_T=None
@@ -279,13 +278,11 @@ def main():
         global rch
         while (not rch):
             for _ in range(10):
-                #stop_E.wait()
                 res_E.wait()
                 if rch or res_E.is_set():
                     break
             step()
             time.sleep(0.001)
-    ######
 
     def step(): #if reached, show path
         global d,s,rch
@@ -308,7 +305,9 @@ def main():
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
                 if (epos:=event.pos)[0]<px0:
                     drag,mpos=(1,event.pos)
-                else:       # ~~~~~~~~~~  panel functions
+
+                # ~~~~~~~~~~  panel functions
+                else:       
                     #if epos[1]<5*px: tl=sv 
                     if 5*px<epos[1]<10*px: # recenter
                         tl=sv
@@ -349,7 +348,9 @@ def main():
                     if 40*px<epos[1]<45*px: 
                         mgen=(mgen+(-1 if epos[0]<ofx else 1))%len(mgens)
 
-            elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0 #drag
+
+            #~~~~~~drag and scroll~~~~~~~
+            elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0
             elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<px0):
                 epos=event.pos
                 delt=epos[0]-mpos[0],epos[1]-mpos[1] #view delta
