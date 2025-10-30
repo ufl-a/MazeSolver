@@ -204,7 +204,9 @@ class Maze:
                 self.B[n0][n1]=self.B[s0][s1]=0
                 self._map_dfsr((s0,s1))
 
-    def map_k(self,src=None): #Krushkal
+    def map_k(self,src=None):#Krushkal
+        pass
+        
 
 class sprite:
     def star(scn,clr,mid,px,wid):
@@ -313,8 +315,11 @@ def main():
     #~~~~~~~~~~ MAZE INIT ~~~~~~~~~~~~~
     M=Maze(*dims)#;print(M.fns(M.mid,()))
     #M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)          #PRIMS
-    #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
-    M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
+    
+    if not dbug:
+        M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
+    else:
+        M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
         sv=tl=((M.mid[0]-view[0]/2,M.mid[1]-view[1]/2)) #float
