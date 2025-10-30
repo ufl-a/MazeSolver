@@ -107,10 +107,9 @@ class Maze:
         fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
         while len(op):
             cost,h,cnode,node,par_=heapq.heappop(op)#;print(top[1])#build path later
-            #if node in cl: continue
+            if node in cl: continue
             ys=[] #"yields", added to s()
-            #cl.add(node)
-            vs+=1
+            vs+=1 #cl.add(node)
             pars[node]=par_
             if node==dest:
                 ret,r=[],pars[dest]
