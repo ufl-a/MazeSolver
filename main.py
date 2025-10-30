@@ -1,6 +1,6 @@
 #!/venv/bin/python
 '''
-Algos Used:
+Research:
 https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 '''
 
@@ -51,13 +51,25 @@ class Maze:
         self.B=[[1 for i in range(0,c)] for j in range(0,r)]
         self.dirs=[(-1,0),(1,0),(0,-1),(0,1)] #LRDU
         self.end=None
-        self.path=None
+        self.path={}
+        #self.pmask=None
     def __str__(self): return '\n'.join(str(self.B[r]) for r in range(self.R))
     def put(self,idx,num): self.B[idx[0]][idx[1]]=num
     def sum2(self,t0,t1):return (t0[0]+t1[0],t0[1]+t1[1])
+    def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
+    def ns2(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip([(d0*2,d1*2) for (d0,d1) in self.dirs], [n]*4))] 
+    #def fs(self,n,fs):f=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and n not in fs;return list(filter(f,self.ns(n)))
+    def fns(self,n,fs): #frontier neighbors, used for generating maze. (better)
+        ret=[] #check if it is wall and not alr in frontiers
+        if n[0]+1<self.R and self.B[n[0]+1][n[1]] and ((r:=(n[0]+1, n[1])) not in fs):ret.append(r)
+        if n[0]-1>=0 and self.B[n[0]-1][n[1]] and ((r:=(n[0]-1, n[1])) not in fs):ret.append(r)
+        if n[1]+1<self.C and self.B[n[0]][n[1]+1] and ((r:=(n[0], n[1]+1)) not in fs):ret.append(r)
+        if n[1]-1>=0 and self.B[n[0]][n[1]-1] and ((r:=(n[0], n[1]-1)) not in fs):ret.append(r)
+        return ret
 
+    #~~~~~~~~~ SOLVING ~~~~~~~~~~~~~
     def gen_djik(self,src=None,dest=None):
-        global fd
+        global fd,vd
         if src is None: src = self.mid
         if dest is None: dest = self.end
         ys,heap,visit,cost=[],[],set(),0
@@ -71,58 +83,64 @@ class Maze:
                ys.append(sq)
                if sq==dest: 
                    fd=path+[dest] #return (cost,path+[dest],visit)
-                   yield ys,len(ys)
+                   vd=len(visit)
+                   yield tuple(ys)
                    return fd
                heapq.heappush(heap,(cost+1,sq,path+[sq]))
            #print(heap)
-           yield ys,len(ys)
+           vd=len(visit)
+           yield tuple(ys)
            #ys.append(pos)
         return -1,[],[]
 
     def gen_star(self,src=None,dest=None): 
-        global fs,heur,heurs
+        global fs,heur,heurs,vs
         if src is None: src = self.mid
         if dest is None: dest = self.end;print(src,dest)
-        op,cl,path,pars=[(0,0,src,None)],set(),[],{src:None} #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
-        fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
 
+        H=heurs[heur]
+        op=[((sh:=H((dest,src))),sh,src,None)]
+        cl,path,pars=set(),[],{src:None} #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
+        fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
         while len(op):
-            top=heapq.heappop(op)#;print(top[1])
+            cost,h,node,_=heapq.heappop(op)#;print(top[1])
             ys=[] #yields, added to s()
-            node=top[2]
             cl.add(node)
             if node==dest:
                 ret,r=[],pars[dest]
                 while r!=None: ret.append(r);r=pars[r]
-                yield [],0
-                return ret
-            ys=[]
+                vs=len(cl)
+                yield []; return ret
+            delt=cost-h
             for sq in filter(fil,self.ns(node)):
-                h=heurs[heur]((dest,sq))
-                heapq.heappush(op,(top[0]+1+h,h,sq,node)); 
+                h0=H((dest,sq))
+                heapq.heappush(op,(delt+h0+1,h0,sq,node)); 
                 pars[sq]=node
                 ys.append(sq)
             #ys.append(node)#;print(ys)
-            yield ys,len(ys)
+            vs=len(cl)
+            yield tuple(ys)
             cl.add(node)
         return list(cl)
 
-    def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
-    #def fs(self,n,fs): 
-    #   f=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and n not in fs; 
-    #   return list(filter(f,self.ns(n)))
+    #~~~~~~~~~ MAZE GEN ~~~~~~~~~~~~~
+    def get_end(self,path=None,src=None): #after maze gen, select an exit, and build a path back to src.
+        if src is None: src = self.mid
+        if path is None: path = self.path;path[src]=None
+        s=[(0,i) for i in range(self.C) if self.B[0][i]==0]
+        s.extend([(i,self.C-1) for i in range(self.R) if self.B[i][-1]==0])
+        s.extend([(self.R-1,i) for i in range(self.C) if self.B[-1][i]==0])
+        s.extend([(i,0) for i in range(self.R) if self.B[i][0]==0])
+        s=random.choice(s)
+        self.end,s_=s,s
+        ret=[s];#print(s);e()
+        while ((r:=path[s_])!=None): ret.append(r);s_=path[s_]
+        self.path=set(ret)
+        #self.pmask=set([[1 if (r,c) in self.path else 0 for c in range(self.C)] for r in range(self.R)])
+        return s,ret
 
-    def fns(self,n,fs): #frontier neighbors, used for generating maze. (better)
-        #print(n) #check if it is wall and not alr in frontiers
-        ret=[]
-        if n[0]+1<self.R and self.B[n[0]+1][n[1]] and ((r:=(n[0]+1, n[1])) not in fs):ret.append(r)
-        if n[0]-1>=0 and self.B[n[0]-1][n[1]] and ((r:=(n[0]-1, n[1])) not in fs):ret.append(r)
-        if n[1]+1<self.C and self.B[n[0]][n[1]+1] and ((r:=(n[0], n[1]+1)) not in fs):ret.append(r)
-        if n[1]-1>=0 and self.B[n[0]][n[1]-1] and ((r:=(n[0], n[1]-1)) not in fs):ret.append(r)
-        return ret
-
-    def map(self,p,f): #prims algo,p=path,f=frontiers
-        path={p:None}
+    def map_prim(self,p,f): #prims algo,p=path,f=frontiers
+        path={self.mid:None}
         self.B[p[0]][p[1]]=0 #gen from here 
         fil=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
         while(len(f)):
@@ -133,30 +151,46 @@ class Maze:
                 self.B[fc[0]][fc[1]]=0;
                 path[(fc[0],fc[1])]=dug[0] 
                 for _ in self.fns(fc,f):f.append(_)
-        match (side:=random.randint(0,3)):
-            case 0: 
-                while(self.B[0][(s:=random.randint(0,self.C-1))]):s+=1
-                s=(0,s)
-            case 1: 
-                while(self.B[s:=random.randint(0,self.R-1)][-1]):s+=1
-                s=(s,self.C-1)
-            case 2: 
-                while(self.B[-1][(s:=random.randint(0,self.R-1))]):s+=1
-                s=(self.R-1,s)
-            case 3: 
-                while(self.B[s:=random.randint(0,self.R-1)][0]):s+=1
-                s=(s,0)
-        #self.B[s[0]][s[1]]=0; print("end tile:   ",s)
-        self.end,s_=s,s
-        ret=[s]#;print(s)
-        while ((r:=path[s_])!=None): ret.append(r);s_=path[s_]
-        self.path=ret
-        return s,ret
+        s,r=self.get_end(path)
 
-    def mapdfs(self,p,f):
-        path,v={p:None},set(p)
-        fil=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]] and rc not in v
+    def map_dfs(self,src=None):
+        if src is None:src=self.mid
+        self.B[src[0]][src[1]]=0
+        path,vis,stk={src:None},{src},[src]
+        fil=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and rc not in vis
+        fil0=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
+        while len(stk):
+            top=stk[-1];#print(top)
+            if (sqs:=list(filter(fil,self.ns2(top)))):
+                sq=sqs[random.randint(0,len(sqs)-1)]
+                vis.add(sq)
+                mid=((sq[0]+top[0])//2,(sq[1]+top[1])//2)
+                self.B[sq[0]][sq[1]]=self.B[mid[0]][mid[1]]=0
+                #if len(list(filter(fil0,self.ns(sq))))<=5:
+                if len(list(filter(fil0,self.ns(sq))))==1:
+                    path[sq]=mid;path[mid]=top
+                stk.append(sq);
+            else: stk.pop(-1)
+        s,r=self.get_end(path)
 
+    def map_dfsr(self,src=None): # RecursionError due to native limits (use only in arcade mode)
+        if src is None:src=self.mid
+        self._map_dfsr(src)
+        self.get_end()
+    def _map_dfsr(self,src=None):
+        self.B[src[0]][src[1]]=0
+        dirs=[(2*a,2*b) for (a,b) in self.dirs]
+        fil0=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
+        random.shuffle(dirs)
+        for d in dirs:
+            if 0<=(s0:=(src[0]+d[0]))<self.R and 0<=(s1:=(src[1]+d[1]))<self.C and self.B[s0][s1]:
+                n0,n1=d[0]//2+src[0],d[1]//2+src[1]
+                if len(list(filter(fil0,self.ns((n0,n1)))))==1:
+                    self.path[(n0,n1)]=src
+                    self.path[(s0,s1)]=(n0,n1)
+                self.B[n0][n1]=self.B[s0][s1]=0
+                self._map_dfsr((s0,s1))
+            
     def mapbfs(self,p,f):
         pass
 
@@ -183,7 +217,7 @@ class sprite:
 def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
     #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
-    global px0,pw,rf,stop,heur,mgen,ofx
+    global px0,pw,rf,stop,heur,mgen,ofx,vd,vs
     f=pygame.font.SysFont("consolas",20)
     strs=["Recenter", \
           ("Show" if not rev else "Hide")+" Path","Restart",\
@@ -192,35 +226,35 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             "Resume" if stop else "Stop",
     ]
           
-    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prims","DFS"][mgen]}",]
-    txt=["DijkstraSquares:",str(len(d)),"A*Squares:",str(len(s)),]
+    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prims","IT-DFS","BFS"][mgen]}",]
+    txt=[["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
 
     px=10#consant px for panel
     ofy=5*px
     for _ in strs:
-        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy))
-        ofy+=5*px
-    #sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4) #heur
-    #sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4) #maze
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy));ofy+=5*px
     for _ in arrs:
-        sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4) 
-        ofy+=20
-        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy))
-        ofy+=50
-
+        sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4);ofy+=20
+        scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy));ofy+=50
+    if rch:
+        for (i,_) in enumerate(txt):
+            c= [(0xff,0,0),(0,0xff,0)][i]
+            for a,b in [_]:
+                scn.blit(f.render(a,1,c),(ofx, ofy));ofy+=5*px
+                scn.blit(f.render(b,1,c),(ofx, ofy));ofy+=5*px
     (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
     U=d.union(s)
     #st=(max(0,int(math.floor(tl[0]))),max(0,int(math.floor(tl[1]))))
     #end=(min(M.R,st[0]+v+1),min(M.C,st[1]+v+1))
     #for r in range(st[0],end[0]): #alternatively, we could do a loop like this
 
-    px=px0/v #variable px
+        # ~~~~ VARIABLE PX [MAZE] ~~~~~~~~~
+    px=px0/v #variable px (for maze)
     for r in range(v):
         r_=R+r #real row/col 
         for c in range(v):
             c_=C+c
             px_=pygame.Rect(c*px,r*px,px,px)
-            #print(M.path);exit()
             col=(0xff,0xff,0xff) if M.B[r_][c_] \
                     else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
                     else (0xff,0x10,0xf0) if (rev and rc in M.path and rc not in d) else (0xee,0xee,0)
@@ -231,12 +265,16 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             if (r_,c_) in s:
                 sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
+
+
+
 def main():
-    global d,s,rch,fd,px0,stop,pw,heur,heurs,mgen,ofx,ofy
+    #~~~~~~~ VARS ~~~~~~~~~~~~~~
+    global d,s,rch,fd,px0,stop,pw,heur,heurs,mgen,ofx,ofy,vd,vs
     #d-tiles,s-tiles,reached end,found path-dijk,display-window width,
     #stop execution,panel width,heuristic index(int),heur lambda list,
-    #display offset(x,y)
-    
+    #display offset(x,y),
+
     dbug=len(sys.argv)>1
     solver_thread = None
     pygame.init();pygame.font.init()
@@ -245,6 +283,7 @@ def main():
     tl,view,px=(0,0),(100,100),10 # viewport:(100,100)
     px0=px*view[0]
     vw,vh=view[0]*px,view[1]*px
+    vd,vs=0,0
     pw=20*px #panel
     ofx=px0+15
 
@@ -252,7 +291,7 @@ def main():
           lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
           lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[0][1]-xy[1][1])),
         ]
-    mgens=['prims','dfs']
+    mgens=["Prims","IT-DFS","REC-DFS","BFS"]
     heur,mgen=0,0
     run,rev,rch,stop=1,0,0,0
     d,s=set(),set()
@@ -260,13 +299,14 @@ def main():
     drag,mpos=0,(0,0)
     (z0,z1)=1,1
     zmin,zmax=.5,1.5
-    #dims,px,run=(20,20),40,1
 
+
+    #~~~~~~~~~~ MAZE ~~~~~~~~~~~~~
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    M.map(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)
-    #M.mapdfs(M.mid,0);#print('start,end:\t',M.end)
+    M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)          #PRIMS
+    #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
+    #M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
-
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
         sv=tl=((M.mid[0]-view[0]/2,M.mid[1]-view[1]/2)) #float
 
@@ -287,15 +327,15 @@ def main():
             time.sleep(0.001)
 
     def step(): #if reached, show path
-        global d,s,rch
+        global d,s,rch,vd,vs
         try:
-            d=d.union(set((out:=(next(djik)))[0]))
+            d=d.union(set((out_d:=(next(djik)))));
         except StopIteration:
-            rch=1;return out
+            rch=1;return
         try:
-            s=s.union(set((out:=(next(star)))[0]))
+            s=s.union(set((out_s:=(next(star)))));
         except StopIteration:
-            rch=1;return out
+            rch=1;return
 
     clk=pygame.time.Clock()
     while run:
@@ -303,7 +343,9 @@ def main():
             if event.type==pygame.QUIT: 
                 run=False
             elif event.type==pygame.KEYDOWN:
+                keys = pygame.key.get_pressed()
                 if event.key==pygame.K_w:step()
+                if keys[pygame.K_LCTRL] and event.key == pygame.K_c:run=0
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
                 if (epos:=event.pos)[0]<px0:
                     drag,mpos=(1,event.pos)
@@ -330,7 +372,10 @@ def main():
                                 cmpl_T.join(timeout=.1)
                                 cmpl_T=None
                             M.B=[[1 for j in range(0,M.C)] for i in range(0,M.R)]
-                            M.map(M.mid,M.fns(M.mid,()))
+                            match mgen:
+                                case 0: M.map_prim(M.mid,M.fns(M.mid,()))
+                                case 1: M.map_dfs(M.mid)
+                                case 3: M.map_bfs(M.mid)
                             djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
                             d,s,rch,stop=set(),set(),0,0
                             continue
@@ -345,11 +390,10 @@ def main():
                         stop=not stop
                         if stop: res_E.clear() 
                         else: res_E.set() 
-                    if 3*px<epos[1]<40*px: 
+                    if 35*px<epos[1]<40*px: 
                         heur=(heur+(-1 if epos[0]<ofx else 1))%len(heurs)
                     if 40*px<epos[1]<45*px: 
                         mgen=(mgen+(-1 if epos[0]<ofx else 1))%len(mgens)
-
 
             #~~~~~~drag and scroll~~~~~~~
             elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0
@@ -378,6 +422,7 @@ def main():
 
         scn.fill((0,0,0))
         #args: maze,topleft,dijk,astar,scrn,pxwidth,revealedstate,zoomratio
+        #print(vd,vs)
         if not dbug:render(M,tl,d,s,scn,px,rev,z1,v=view[0])  
         else: render(M,tl,d,s,scn,px,rev,z1,v=20) ###DEBUG DIMS=20
         pygame.display.flip()
