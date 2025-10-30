@@ -1,7 +1,8 @@
 #!/venv/bin/python
 '''
 Research:
-https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
+prims:      https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
+krushkal:   https://weblog.jamisbuck.org/2011/1/3/maze-generation-kruskal-s-algorithm
 '''
 
 import random,pygame,sys,math,threading,time
@@ -100,21 +101,20 @@ class Maze:
         if dest is None: dest = self.end;print(src,dest)
         H=heurs[heur]
         #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
-        op=[((sh:=H((dest,src))),sh,0,src,None)]
-        #op=[(0+(sh:=H((dest,src))),sh,src,None)]
-        cs={src:0} #cost from start
-        cl,path,pars=set(),[],{src:None} 
+        op=[((sh:=H((dest,src))),sh,0,src,None)] #op=[(0+(sh:=H((dest,src))),sh,src,None)]
+        cl,path,pars,cs=set(),[],{src:None},{src:0} #cs:minimum cost from start known for a given sq.
         fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
         while len(op):
             cost,h,cnode,node,par_=heapq.heappop(op)#;print(top[1])#build path later
-            if node in cl: continue
+            if node in cl or cnode>cs.get(node,float('inf')): continue
+            cl.add(node)
             ys=[] #"yields", added to s()
             vs+=1 #cl.add(node)
             pars[node]=par_
             if node==dest:
-                ret,r=[],pars[dest]
-                while r!=None: ret.append(r);r=pars[r]#vs=len(cl)
-                yield []; return ret #is StopIteration.value
+                path,r=[dest],pars[dest]
+                while r is not None: path.append(r);r=pars[r]
+                yield []; return path#is StopIteration.value
             for sq in filter(fil,self.ns(node)):
                 cnode_=cs[node]+1   #cost+(1) from previous is assumed value
                 if cs.get(sq,float('inf'))>cnode_: #if cost is less from another path, take the min.
@@ -126,7 +126,6 @@ class Maze:
             #ys.append(node)#;print(ys)
             vs=len(cl)
             yield tuple(ys)
-            cl.add(node)
         return list(cl)
 
     #~~~~~~~~~ MAZE GEN ~~~~~~~~~~~~~
@@ -167,21 +166,20 @@ class Maze:
         fil0=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
         while len(stk):
             top=stk[-1];#print(top)
-            if random.random() < 0.15:
+            if random.random()<0.15:#for randomness,sometimes begin at a visited square
                 top = random.choice(list(vis))
                 stk.append(top)
                 m = None
             ds=self.ns2(top)
             random.shuffle(ds)
-            if m and random.random()<.3:ds.insert(0,((m[0]+top[0],m[1]+top[1])))
+            if m and random.random()<.3:ds.insert(0,((m[0]+top[0],m[1]+top[1]))) #30% of keeping prev direction
             if (sqs:=list(filter(fil,ds))):
                 sq=sqs[random.randint(0,len(sqs)-1)]
                 vis.add(sq)
                 mid=((sq[0]+top[0])//2,(sq[1]+top[1])//2)
                 self.B[sq[0]][sq[1]]=self.B[mid[0]][mid[1]]=0
-                m=(sq[0]-top[0],sq[1]-top[1])
-                if len(list(filter(fil0,self.ns(sq))))<=4:
-                    path[sq]=mid;path[mid]=top
+                m=(sq[0]-top[0],sq[1]-top[1]) #directionvector
+                if len(list(filter(fil0,self.ns(sq))))==1:path[sq]=mid;path[mid]=top
                 stk.append(sq);
             else: 
                 stk.pop(-1)
@@ -192,7 +190,7 @@ class Maze:
         if src is None:src=self.mid
         self._map_dfsr(src)
         self.get_end()
-    def _map_dfsr(self,src=None):
+    def _map_dfsr(self,src):
         self.B[src[0]][src[1]]=0
         dirs=[(2*a,2*b) for (a,b) in self.dirs]
         fil0=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
@@ -200,14 +198,13 @@ class Maze:
         for d in dirs:
             if 0<=(s0:=(src[0]+d[0]))<self.R and 0<=(s1:=(src[1]+d[1]))<self.C and self.B[s0][s1]:
                 n0,n1=d[0]//2+src[0],d[1]//2+src[1]
-                if len(list(filter(fil0,self.ns((n0,n1)))))==1:
+                if len(list(filter(fil0,self.ns((n0,n1)))))==1 and not self.B[n0-d[0]//2][n1-d[1]//2]:
                     self.path[(n0,n1)]=src
                     self.path[(s0,s1)]=(n0,n1)
                 self.B[n0][n1]=self.B[s0][s1]=0
                 self._map_dfsr((s0,s1))
-            
-    def mapbfs(self,p,f):
-        pass
+
+    def map_k(self,src=None): #Krushkal
 
 class sprite:
     def star(scn,clr,mid,px,wid):
@@ -241,7 +238,7 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             "Resume" if stop else "Stop",
     ]
           
-    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prims","DFS","BFS"][mgen]}",]
+    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prim","DFS","Krushkal"][mgen]}",]
     txt=[["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
 
     px=10#consant px for panel
@@ -273,13 +270,10 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             col=(0xff,0xff,0xff) if M.B[r_][c_] \
                     else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
                     else (0xff,0x10,0xf0) if (rev and rc in M.path and rc not in d) else (0xee,0xee,0)
-
             if (r_,c_)==M.mid: col=(0x80,0,0x80)
             if (r_,c_)==M.end: col=(0xff,0,0)
             pygame.draw.rect(scn,col,px_)
-            if (r_,c_) in s:
-                sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
-
+            if (r_,c_) in s: sprite.star(scn, 0x00ffff,((c+0.5)*px,(r+0.5)*px),px,10) #overlay A* squares 
 
 
 
@@ -299,7 +293,7 @@ def main():
     px0=px*view[0]
     vw,vh=view[0]*px,view[1]*px
     vd,vs=0,0
-    pw=20*px #panel
+    pw=20*px #width of panel
     ofx=px0+15
 
     heurs=[
@@ -318,9 +312,9 @@ def main():
 
     #~~~~~~~~~~ MAZE INIT ~~~~~~~~~~~~~
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)          #PRIMS
+    #M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)          #PRIMS
     #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
-    #M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
+    M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
         sv=tl=((M.mid[0]-view[0]/2,M.mid[1]-view[1]/2)) #float
@@ -365,7 +359,7 @@ def main():
                 if (epos:=event.pos)[0]<px0:
                     drag,mpos=(1,event.pos)
 
-                # ~~~~~~~~~~  panel functions
+                # ~~~~~~~~~~ PANEL 
                 else:       
                     #if epos[1]<5*px: tl=sv 
                     if 5*px<epos[1]<10*px: # recenter
@@ -390,7 +384,6 @@ def main():
                             match mgen:
                                 case 0: M.map_prim(M.mid,M.fns(M.mid,()))
                                 case 1: M.map_dfs(M.mid)
-                                case 3: M.map_bfs(M.mid)
                             djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
                             d,s,rch,stop=set(),set(),0,0
                             continue
@@ -446,3 +439,5 @@ def main():
     sys.exit()
 
 if __name__=="__main__": main()
+
+
