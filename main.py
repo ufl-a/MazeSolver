@@ -97,7 +97,6 @@ class Maze:
         global fs,heur,heurs,vs
         if src is None: src = self.mid
         if dest is None: dest = self.end;print(src,dest)
-
         H=heurs[heur]
         op=[((sh:=H((dest,src))),sh,src,None)]
         cl,path,pars=set(),[],{src:None} #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
