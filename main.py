@@ -56,10 +56,11 @@ class Maze:
     def __str__(self): return '\n'.join(str(self.B[r]) for r in range(self.R))
     def put(self,idx,num): self.B[idx[0]][idx[1]]=num
     def sum2(self,t0,t1):return (t0[0]+t1[0],t0[1]+t1[1])
-    def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
-    def ns2(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip([(d0*2,d1*2) for (d0,d1) in self.dirs], [n]*4))] 
+    #def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
+    def ns(self,n): return [(a+n[0],b+n[1]) for (a,b) in self.dirs] #neighbors
+    def ns2(self,n,d=None): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip([(d0*2,d1*2) for (d0,d1) in (self.dirs if not d else d)], [n]*4))] 
     #def fs(self,n,fs):f=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and n not in fs;return list(filter(f,self.ns(n)))
-    def fns(self,n,fs): #frontier neighbors, used for generating maze. (better)
+    def fns(self,n,fs=None): #frontier neighbors, used for generating maze. (better)
         ret=[] #check if it is wall and not alr in frontiers
         if n[0]+1<self.R and self.B[n[0]+1][n[1]] and ((r:=(n[0]+1, n[1])) not in fs):ret.append(r)
         if n[0]-1>=0 and self.B[n[0]-1][n[1]] and ((r:=(n[0]-1, n[1])) not in fs):ret.append(r)
@@ -98,24 +99,31 @@ class Maze:
         if src is None: src = self.mid
         if dest is None: dest = self.end;print(src,dest)
         H=heurs[heur]
-        op=[((sh:=H((dest,src))),sh,src,None)]
-        cl,path,pars=set(),[],{src:None} #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
+        #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
+        op=[((sh:=H((dest,src))),sh,0,src,None)]
+        #op=[(0+(sh:=H((dest,src))),sh,src,None)]
+        cs={src:0} #cost from start
+        cl,path,pars=set(),[],{src:None} 
         fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
         while len(op):
-            cost,h,node,_=heapq.heappop(op)#;print(top[1])
-            ys=[] #yields, added to s()
-            cl.add(node)
+            cost,h,cnode,node,par_=heapq.heappop(op)#;print(top[1])#build path later
+            #if node in cl: continue
+            ys=[] #"yields", added to s()
+            #cl.add(node)
+            vs+=1
+            pars[node]=par_
             if node==dest:
                 ret,r=[],pars[dest]
-                while r!=None: ret.append(r);r=pars[r]
-                vs=len(cl)
-                yield []; return ret
-            delt=cost-h
+                while r!=None: ret.append(r);r=pars[r]#vs=len(cl)
+                yield []; return ret #is StopIteration.value
             for sq in filter(fil,self.ns(node)):
-                h0=H((dest,sq))
-                heapq.heappush(op,(delt+h0+1,h0,sq,node)); 
-                pars[sq]=node
-                ys.append(sq)
+                cnode_=cs[node]+1   #cost+(1) from previous is assumed value
+                if cs.get(sq,float('inf'))>cnode_: #if cost is less from another path, take the min.
+                    cs[sq]=cnode_
+                    pars[sq]=node
+                    h0=H((dest,sq))
+                    heapq.heappush(op,(h0+cnode_,h0,cnode_,sq,node)); 
+                    ys.append(sq)
             #ys.append(node)#;print(ys)
             vs=len(cl)
             yield tuple(ys)
@@ -125,7 +133,7 @@ class Maze:
     #~~~~~~~~~ MAZE GEN ~~~~~~~~~~~~~
     def get_end(self,path=None,src=None): #after maze gen, select an exit, and build a path back to src.
         if src is None: src = self.mid
-        if path is None: path = self.path;path[src]=None
+        if path is None: path=self.path;path[src]=None
         s=[(0,i) for i in range(self.C) if self.B[0][i]==0]
         s.extend([(i,self.C-1) for i in range(self.R) if self.B[i][-1]==0])
         s.extend([(self.R-1,i) for i in range(self.C) if self.B[-1][i]==0])
@@ -155,22 +163,31 @@ class Maze:
     def map_dfs(self,src=None):
         if src is None:src=self.mid
         self.B[src[0]][src[1]]=0
-        path,vis,stk={src:None},{src},[src]
+        path,vis,stk,m={src:None},{src},[src],None #m:momentum vec
         fil=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and rc not in vis
         fil0=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
         while len(stk):
             top=stk[-1];#print(top)
-            if (sqs:=list(filter(fil,self.ns2(top)))):
+            if random.random() < 0.15:
+                top = random.choice(list(vis))
+                stk.append(top)
+                m = None
+            ds=self.ns2(top)
+            random.shuffle(ds)
+            if m and random.random()<.3:ds.insert(0,((m[0]+top[0],m[1]+top[1])))
+            if (sqs:=list(filter(fil,ds))):
                 sq=sqs[random.randint(0,len(sqs)-1)]
                 vis.add(sq)
                 mid=((sq[0]+top[0])//2,(sq[1]+top[1])//2)
                 self.B[sq[0]][sq[1]]=self.B[mid[0]][mid[1]]=0
-                #if len(list(filter(fil0,self.ns(sq))))<=5:
-                if len(list(filter(fil0,self.ns(sq))))==1:
+                m=(sq[0]-top[0],sq[1]-top[1])
+                if len(list(filter(fil0,self.ns(sq))))<=4:
                     path[sq]=mid;path[mid]=top
                 stk.append(sq);
-            else: stk.pop(-1)
-        s,r=self.get_end(path)
+            else: 
+                stk.pop(-1)
+                m=None
+        self.get_end(path)
 
     def map_dfsr(self,src=None): # RecursionError due to native limits (use only in arcade mode)
         if src is None:src=self.mid
@@ -225,7 +242,7 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             "Resume" if stop else "Stop",
     ]
           
-    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prims","IT-DFS","BFS"][mgen]}",]
+    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prims","DFS","BFS"][mgen]}",]
     txt=[["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
 
     px=10#consant px for panel
@@ -290,7 +307,7 @@ def main():
           lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
           lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[0][1]-xy[1][1])),
         ]
-    mgens=["Prims","IT-DFS","REC-DFS","BFS"]
+    mgens=["Prims","DFS","BFS"]
     heur,mgen=0,0
     run,rev,rch,stop=1,0,0,0
     d,s=set(),set()
@@ -300,7 +317,7 @@ def main():
     zmin,zmax=.5,1.5
 
 
-    #~~~~~~~~~~ MAZE ~~~~~~~~~~~~~
+    #~~~~~~~~~~ MAZE INIT ~~~~~~~~~~~~~
     M=Maze(*dims)#;print(M.fns(M.mid,()))
     M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)          #PRIMS
     #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
@@ -367,7 +384,7 @@ def main():
                     if 20*px<epos[1]<25*px: #regen/complete (threadcall)
                         if rch:
                             res_E.clear();stop=1
-                            if cmpl_T is None and cmpl_T.is_alive():
+                            if cmpl_T is not None and cmpl_T.is_alive():
                                 cmpl_T.join(timeout=.1)
                                 cmpl_T=None
                             M.B=[[1 for j in range(0,M.C)] for i in range(0,M.R)]
