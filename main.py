@@ -167,7 +167,7 @@ class Maze:
         s.extend([(i,0) for i in range(self.R) if self.B[i][0]==0])
         s=random.choice(s)
         self.end,s_=s,s
-        ret=[s];#print(s);e()
+        ret=[s];#print(s)
         while ((r:=path[s_])!=None): ret.append(r);s_=path[s_]
         self.path=set(ret)
         #self.pmask=set([[1 if (r,c) in self.path else 0 for c in range(self.C)] for r in range(self.R)])
@@ -254,13 +254,18 @@ class Maze:
         random.shuffle(ver)
         while ver:
             v=ver.pop(-1)
-            if self.end in (v[1],v[2]): break
             if k.find(v[1])!=k.find(v[2]):
-            #if k.find(v[1])!=k.find((0,0)):
                 k.U(v[1],v[2])
-                pars[v[1]]=v[2]
                 self.B[v[0][0]][v[0][1]]=0
-        
+                if v[1][0] in (0,self.R-1) or v[1][1] in (0,self.C-1):
+                    self.end=v[1]
+                    pars[v[1]]=v[2]
+                elif v[2][0] in (0,self.R-1) or v[2][1] in (0,self.C-1):
+                    self.end=v[2]
+                    pars[v[2]]=v[1]
+                else:
+                    pars[v[1]]=v[2]
+        r=pars[self.end]
         #self.get_end()
         #print(self)
             
@@ -369,17 +374,14 @@ def main():
 
     #~~~~~~~~~~ MAZE INIT ~~~~~~~~~~~~~
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    #M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)          #PRIMS
-    
+    #M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)              #PRIMS
     if not dbug:
-        #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
-        M.end=(1,1)
-        M.map_k()
+        M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
+        #M.map_k()                                                               #KRUSKAL    
     else:
-        M.end=(1,1)
+        #M.end=(1,1)
         M.map_k()
         #M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
-        #e();p(M)
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
         sv=tl=((M.mid[0]-view[0]/2,M.mid[1]-view[1]/2)) #float
@@ -449,6 +451,7 @@ def main():
                             match mgen:
                                 case 0: M.map_prim(M.mid,M.fns(M.mid,()))
                                 case 1: M.map_dfs(M.mid)
+                                case 2: M.map_k()
                             djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
                             d,s,rch,stop=set(),set(),0,0
                             continue
@@ -503,4 +506,4 @@ def main():
     pygame.quit()
     sys.exit()
 
-if __name__=="__main__": main()
+if __name__=="__main__":main()
