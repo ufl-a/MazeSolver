@@ -1,6 +1,7 @@
 #!/venv/bin/python
 '''
 Research:
+basic:      https://en.wikipedia.org/wiki/Maze_generation_algorithm
 prims:      https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 krushkal:   https://weblog.jamisbuck.org/2011/1/3/maze-generation-kruskal-s-algorithm
 '''
@@ -204,7 +205,11 @@ class Maze:
                 self.B[n0][n1]=self.B[s0][s1]=0
                 self._map_dfsr((s0,s1))
 
-    def map_k(self,src=None):#Krushkal
+    def map_k(self,src=None):#Kruskal
+        if src is None: src = self.mid
+        for r in range(1,self.R):
+            for c in range(1,self.C,2):
+                self.B[r][c]=0
         pass
         
 
@@ -319,6 +324,7 @@ def main():
     if not dbug:
         M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
     else:
+        M.map_k()
         M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
