@@ -236,6 +236,7 @@ class Maze:
     def map_k(self,src=None):#Kruskal:: requires Union-Find structure for set manip.
         if src is None: src = self.mid #ver=(wall,(opposite cells)) in grid
         path,ver,walls={src:None},[],[]#for i in walls: self.B[i[0]][i[1]]=0 #printout
+        pars={}
         for r in range(self.R):
             for c in range(self.C):
                 if (r%2==1 and c%2==1): self.B[r][c]=0
@@ -253,9 +254,12 @@ class Maze:
         random.shuffle(ver)
         while ver:
             v=ver.pop(-1)
-            if k.find(v[1])!=k.find(v[2]):
+            #if k.find(v[1])!=k.find(v[2]):
+            if k.find(v[1])!=k.find(self.end):
                 k.U(v[1],v[2])
+                pars[v[1]]=v[2]
                 self.B[v[0][0]][v[0][1]]=0
+        
         #self.get_end()
         #print(self)
             
