@@ -50,11 +50,10 @@ class heapq: #mostly copied from std module; this is a minheap.
         return last
 
 class kset: #union-find set used in Krushal's Alg. :: make_set,union_sets(U),find_set are able to run in O(1).
-    def __init__(self,col,el=None):
-        self.c=col
+    def __init__(self,el=None):
         self.par,self.rank={},{}
-        #self.v=lambda x:x[0]*self.c+x[1]
         if el is not None: self.set(el);#p(el,self.par)
+        #self.v=lambda x:x[0]*self.c+x[1]
     def set(self,el):
         assert isinstance(el,(tuple,list))
         if isinstance(el,tuple): el=[el]#v=[self.v(el)]
@@ -81,7 +80,7 @@ class Maze:
         self.B=[[1 for i in range(0,c)] for j in range(0,r)]
         self.dirs=[(-1,0),(1,0),(0,-1),(0,1)] #LRDU
         self.end=None
-        self.path={}
+        self.path=set()
         #self.pmask=None
     def __str__(self): return '\n'.join(str(self.B[r]) for r in range(self.R))
     def put(self,idx,num): self.B[idx[0]][idx[1]]=num
@@ -240,7 +239,7 @@ class Maze:
         for r in range(self.R):
             for c in range(self.C):
                 if (r%2==1 and c%2==1): self.B[r][c]=0
-                if (r+c)%2!=0: walls.append((r,c))
+                if (r+c)%2!=0: walls.append((r,c)) #(odd|even,even|odd) are walls
         while (len(walls)):#w=walls.pop(random.randint(0,len(walls)-1))
             w=walls.pop()
             if w[0]%2!=0 and w[1]%2==0:#ver
@@ -249,25 +248,31 @@ class Maze:
             if w[0]%2==0 and w[1]%2!=0: #hor
                 if 0<=(l:=w[1]-1)<self.C and 0<=(r:=w[1]+1)<self.C:# and l%2==0 and r%2==0:
                     ver.append([w,(w[0],l),(w[0],r)])
-        k=kset(self.C)
+        self.B[self.mid[0]][self.mid[1]]=0
+        k=kset(self.mid)
         for v in (ver):k.set([v[1],v[2]])
         random.shuffle(ver)
-        while ver:
+        while len(ver):
+
+        #while (self.end is None or k.find(self.end)!=k.find(self.mid)):
             v=ver.pop(-1)
             if k.find(v[1])!=k.find(v[2]):
                 k.U(v[1],v[2])
                 self.B[v[0][0]][v[0][1]]=0
-                if v[1][0] in (0,self.R-1) or v[1][1] in (0,self.C-1):
+                if v[1][0] in (1,self.R-1) or v[1][1] in (0,self.C-1):
                     self.end=v[1]
+                    self.B[v[1][0]][v[1][1]]=0
                     pars[v[1]]=v[2]
                 elif v[2][0] in (0,self.R-1) or v[2][1] in (0,self.C-1):
                     self.end=v[2]
+                    self.B[v[2][0]][v[2][1]]=0
                     pars[v[2]]=v[1]
                 else:
                     pars[v[1]]=v[2]
-        r=pars[self.end]
-        #self.get_end()
-        #print(self)
+        r=self.end
+        while r!=None and r in pars:
+            self.path.add(r)
+            r=pars[r]
             
 class sprite:
     def star(scn,clr,mid,px,wid):
@@ -376,8 +381,8 @@ def main():
     M=Maze(*dims)#;print(M.fns(M.mid,()))
     #M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)              #PRIMS
     if not dbug:
-        M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
-        #M.map_k()                                                               #KRUSKAL    
+        #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
+        M.map_k()                                                               #KRUSKAL    
     else:
         #M.end=(1,1)
         M.map_k()
