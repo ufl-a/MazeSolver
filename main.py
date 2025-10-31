@@ -254,8 +254,9 @@ class Maze:
         random.shuffle(ver)
         while ver:
             v=ver.pop(-1)
+            if self.end in (v[1],v[2]): break
             if k.find(v[1])!=k.find(v[2]):
-            #if k.find(v[1])!=k.find(self.end):
+            #if k.find(v[1])!=k.find((0,0)):
                 k.U(v[1],v[2])
                 pars[v[1]]=v[2]
                 self.B[v[0][0]][v[0][1]]=0
@@ -372,10 +373,11 @@ def main():
     
     if not dbug:
         #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
+        M.end=(1,1)
         M.map_k()
     else:
+        M.end=(1,1)
         M.map_k()
-        M.end=(0,0)
         #M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
         #e();p(M)
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
