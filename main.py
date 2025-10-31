@@ -254,8 +254,8 @@ class Maze:
         random.shuffle(ver)
         while ver:
             v=ver.pop(-1)
-            #if k.find(v[1])!=k.find(v[2]):
-            if k.find(v[1])!=k.find(self.end):
+            if k.find(v[1])!=k.find(v[2]):
+                #if k.find(v[1])!=k.find(self.end):
                 k.U(v[1],v[2])
                 pars[v[1]]=v[2]
                 self.B[v[0][0]][v[0][1]]=0
