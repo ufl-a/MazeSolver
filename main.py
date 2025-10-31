@@ -4,10 +4,13 @@ Research:
 basic:      https://en.wikipedia.org/wiki/Maze_generation_algorithm
 prims:      https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
 krushkal:   https://weblog.jamisbuck.org/2011/1/3/maze-generation-kruskal-s-algorithm
+            https://cp-algorithms.com/data_structures/disjoint_set_union.html
 '''
 
-import random,pygame,sys,math,threading,time
-e=sys.exit #for debug
+import random,sys,math,threading,time
+from os import environ;environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+import pygame
+p,e=print,sys.exit #for debug
 
 class heapq: #mostly copied from std module; this is a minheap.
     def ripple_up(heap,pos):
@@ -45,6 +48,31 @@ class heapq: #mostly copied from std module; this is a minheap.
             heapq.ripple_up(heap,0)
             return ret
         return last
+
+class kset: #union-find set used in Krushal's Alg. :: make_set,union_sets(U),find_set are able to run in O(1).
+    def __init__(self,col,el=None):
+        self.c=col
+        self.par,self.rank={},{}
+        #self.v=lambda x:x[0]*self.c+x[1]
+        if el is not None: self.set(el);#p(el,self.par)
+    def set(self,el):
+        assert isinstance(el,(tuple,list))
+        if isinstance(el,tuple): el=[el]#v=[self.v(el)]
+        #else: v=[self.v(x) for x in el]
+        for _ in el: self.par[_],self.rank[_]=_,0
+    def find(self,a): #"flattens" the tree, makes access O(1)
+        #if (f:=self.par.get(a,None)) is not None and f!=a: #there is only ever one x st. par[x]==x,assume membership.
+        if self.par[a]!=a:self.par[a]=self.find(self.par[a])
+        return self.par[a]
+    def U(self,a,b): #new rep of fa becomes fb, now par[a]....fa==fb, and par[fb]==fb; meaning par[a]...fb
+        #a,b=map(self.v,(a,b))
+        if ((fa:=self.find(a))!=(fb:=self.find(b))): #eg a!=b,determine
+            if self.rank[fa]<self.rank[fb]:self.par[fa]=fb 
+            elif self.rank[fa]>self.rank[fb]:self.par[fb]=fa
+            else: 
+                self.par[fb]=fa
+                self.rank[fa]+=1
+        #print(self.par)
 
 class Maze: 
     def __init__(self,r,c):
@@ -205,14 +233,32 @@ class Maze:
                 self.B[n0][n1]=self.B[s0][s1]=0
                 self._map_dfsr((s0,s1))
 
-    def map_k(self,src=None):#Kruskal
-        if src is None: src = self.mid
-        for r in range(1,self.R):
-            for c in range(1,self.C,2):
-                self.B[r][c]=0
-        pass
-        
-
+    def map_k(self,src=None):#Kruskal:: requires Union-Find structure for set manip.
+        if src is None: src = self.mid #ver=(wall,(opposite cells)) in grid
+        path,ver,walls={src:None},[],[]#for i in walls: self.B[i[0]][i[1]]=0 #printout
+        for r in range(self.R):
+            for c in range(self.C):
+                if (r%2==1 and c%2==1): self.B[r][c]=0
+                if (r+c)%2!=0: walls.append((r,c))
+        while (len(walls)):#w=walls.pop(random.randint(0,len(walls)-1))
+            w=walls.pop()
+            if w[0]%2!=0 and w[1]%2==0:#ver
+                if 0<=(u:=w[0]-1)<self.R and 0<=(d:=w[0]+1)<self.R:# and u%2==1 and d%2==1:
+                    ver.append([w,(u,w[1]),(d,w[1])]) 
+            if w[0]%2==0 and w[1]%2!=0: #hor
+                if 0<=(l:=w[1]-1)<self.C and 0<=(r:=w[1]+1)<self.C:# and l%2==0 and r%2==0:
+                    ver.append([w,(w[0],l),(w[0],r)])
+        k=kset(self.C)
+        for v in (ver):k.set([v[1],v[2]])
+        random.shuffle(ver)
+        while ver:
+            v=ver.pop(-1)
+            if k.find(v[1])!=k.find(v[2]):
+                k.U(v[1],v[2])
+                self.B[v[0][0]][v[0][1]]=0
+        #self.get_end()
+        #print(self)
+            
 class sprite:
     def star(scn,clr,mid,px,wid):
         to,(x,y)=px//4,mid
@@ -245,7 +291,7 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             "Resume" if stop else "Stop",
     ]
           
-    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"MazeGen:{["Prim","DFS","Krushkal"][mgen]}",]
+    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"Maze:{["Prim","DFS","Kruskal"][mgen]}",]
     txt=[["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
 
     px=10#consant px for panel
@@ -307,7 +353,7 @@ def main():
           lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
           lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[0][1]-xy[1][1])),
         ]
-    mgens=["Prims","DFS","BFS"]
+    mgens=["Prims","DFS","Kruskal"]
     heur,mgen=0,0
     run,rev,rch,stop=1,0,0,0
     d,s=set(),set()
@@ -316,16 +362,18 @@ def main():
     (z0,z1)=1,1
     zmin,zmax=.5,1.5
 
-
     #~~~~~~~~~~ MAZE INIT ~~~~~~~~~~~~~
     M=Maze(*dims)#;print(M.fns(M.mid,()))
     #M.map_prim(M.mid,M.fns(M.mid,()));#print('start,end:\t',M.end)          #PRIMS
     
     if not dbug:
-        M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
+        #M.map_dfs(M.mid);#print('start,end:\t',M.end)                            #DFS
+        M.map_k()
     else:
         M.map_k()
-        M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
+        M.end=(0,0)
+        #M.map_dfsr(M.mid);#print('start,end:\t',M.end)                          #DFSR
+        #e();p(M)
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
         sv=tl=((M.mid[0]-view[0]/2,M.mid[1]-view[1]/2)) #float
@@ -351,11 +399,11 @@ def main():
         try:
             d=d.union(set((out_d:=(next(djik)))));
         except StopIteration:
-            rch=1;return
+            rch=1;return StopIteration.value
         try:
             s=s.union(set((out_s:=(next(star)))));
         except StopIteration:
-            rch=1;return
+            rch=1;return StopIteration.value
 
     clk=pygame.time.Clock()
     while run:
@@ -409,7 +457,7 @@ def main():
                         stop=not stop
                         if stop: res_E.clear() 
                         else: res_E.set() 
-                    if 35*px<epos[1]<40*px: 
+                    if 33*px<epos[1]<40*px: 
                         heur=(heur+(-1 if epos[0]<ofx else 1))%len(heurs)
                     if 40*px<epos[1]<45*px: 
                         mgen=(mgen+(-1 if epos[0]<ofx else 1))%len(mgens)
@@ -450,5 +498,3 @@ def main():
     sys.exit()
 
 if __name__=="__main__": main()
-
-
