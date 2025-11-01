@@ -249,30 +249,33 @@ class Maze:
                     up,dp=(u,w[1]),(d,w[1])
                     assert (up[0]%2==up[1]%2==1 and dp[0]%2==dp[1]%2==1)
                     ver.append([w,up,dp]) 
-        for n in (ns:=self.ns(src)+[src]): 
-            k=kset(ns)
-            self.B[n[0]][n[1]]=0 
+        #for n in (ns:=self.ns(src)+[src]):self.B[n[0]][n[1]]=0 
+        k=kset(self.mid)
+        k.set([(r, c) for c in range(1,self.C,2) for r in range(1,self.R,2)]) #init w/ cells
+
         for v in (ver):k.set([v[1],v[2]])
         random.shuffle(ver)
+        brd=lambda v: ((v[0] in (1,self.R-1)) or (v[1] in (1,self.C-1)))
 
-        brd=lambda v: ((v[0] in (1,self.R-1)) or (v[1] in (0,self.C-1)))
-        while (self.end is None or k.find(self.end)!=k.find(self.mid)):
-        #while ver: #dbug
+        #return (r == 1 or r == self.R - 2 or c == 1 or c == self.C - 2)
+        #while (self.end is None or k.find(self.end)!=k.find(self.mid)):
+        #while not self.end:
+        while ver:
             v=ver.pop()
             if k.find(v[1])!=k.find(v[2]): #matching subsets; if ==, then have the same rep->same subset.
                 k.U(v[1],v[2])# print(k.par)
                 self.B[v[0][0]][v[0][1]]=0
-                if not self.end:
-                    if brd(v[1]) and (k.find(v[1])==k.find(src)):
-                        self.end=v[1]
-                        pars[v[1]]=v[2]
-                    elif brd(v[2]) and (k.find(v[2])==k.find(src)):
-                        self.end=v[2]
-                        pars[v[2]]=v[1]
-                    else:
-                        pars[v[1]]=v[2]
+                #if not self.end:
+                if brd(v[1]) and k.find(v[1]) == k.find(src):
+                    self.end = v[1]
+                    pars[v[1]] = v[2]
+                elif brd(v[2]) and k.find(v[2]) == k.find(src):
+                    self.end = v[2]
+                    pars[v[2]] = v[1]
+                else:
+                    pars[v[1]] = v[2]
 
-        self.end=(1,1) #d
+        self.end=(1,1)
         self.B[self.end[0]][self.end[1]]=0
         r=self.end
         while r is not None and r in pars:
