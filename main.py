@@ -256,8 +256,8 @@ class Maze:
         random.shuffle(ver)
 
         brd=lambda v: ((v[0] in (1,self.R-1)) or (v[1] in (0,self.C-1)))
-        #while (self.end is None or k.find(self.end)!=k.find(self.mid)):
-        while ver: #dbug
+        while (self.end is None or k.find(self.end)!=k.find(self.mid)):
+        #while ver: #dbug
             v=ver.pop()
             if k.find(v[1])!=k.find(v[2]): #matching subsets; if ==, then have the same rep->same subset.
                 k.U(v[1],v[2])# print(k.par)
