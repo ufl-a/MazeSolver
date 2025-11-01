@@ -102,19 +102,20 @@ class Maze:
         filt=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]]) 
         while len(heap): 
            (cost,pos,path)=heapq.heappop(heap) 
+           if pos in visit:continue
            ys=[]
+           if pos==dest: 
+               fd=path+[dest] #return (cost,path+[dest],visit)
+               vd=len(visit)
+               yield ()
+               return fd
            for sq in (ns:=filter(filt,self.ns(pos))):
-               visit.add(sq)
-               ys.append(sq)
-               if sq==dest: 
-                   fd=path+[dest] #return (cost,path+[dest],visit)
-                   vd=len(visit)
-                   yield tuple(ys)
-                   return fd
                heapq.heappush(heap,(cost+1,sq,path+[sq]))
+               #visit.add(sq)
+               #ys.append(sq)
            #print(heap)
            vd=len(visit)
-           yield tuple(ys)
+           yield tuple(pos)
            #ys.append(pos)
         return -1,[],[]
 
@@ -146,9 +147,10 @@ class Maze:
                     h0=H((dest,sq))
                     heapq.heappush(op,(h0+cnode_,h0,cnode_,sq,node)); 
                     ys.append(sq)
-            #ys.append(node)#;print(ys)
+            ys.append(node)#;print(ys)
             vs=len(cl)
             yield tuple(ys)
+            #yield tuple(node,)
         return list(cl)
 
     #~~~~~~~~~ MAZE GEN ~~~~~~~~~~~~~
@@ -309,11 +311,11 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             "Complete" if not rch else "New Board",\
             "Take 50 Steps", \
             "Resume" if stop else "Stop",
-          f"Stop at:{M.end}"
+              #f"Arcade" if arc else "Return",
+              f"Stop at:{M.end}",
     ]
           
-    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"Maze:{["Prim","DFS","Kruskal"][mgen]}",,]
-    txt=[["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
+    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"Maze:{["Prim","DFS","Kruskal"][mgen]}",]
 
     px=10 #constant px for panel
     ofy=5*px
@@ -322,12 +324,14 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
     for _ in arrs:
         sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4);ofy+=20
         scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy));ofy+=50
+    #txt=[["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
     #if rch:
     #    for (i,_) in enumerate(txt):
     #        c= [(0xff,0,0),(0,0xff,0)][i]
     #        for a,b in [_]:
     #            scn.blit(f.render(a,1,c),(ofx, ofy));ofy+=5*px
     #            scn.blit(f.render(b,1,c),(ofx, ofy));ofy+=5*px
+
     (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
     U=d.union(s)
 
@@ -341,9 +345,11 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
         for c in range(v):
             c_=C+c
             px_=pygame.Rect(c*px,r*px,px,px)
-            col=(0xff,0xff,0xff) if M.B[r_][c_] \
-                    else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
-                    else (0xff,0x10,0xf0) if (rev and rc in M.path and rc not in d) else (0xee,0xee,0)
+                    #else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
+            col=(0xff,0xff,0xff) if M.B[r_][c_]\
+                    else (0,0,0) if (((rc:=(r_,c_)) not in U) and not (rev and rc not in M.path)) \
+                    else (0xff,0x10,0xf0) if (rev and rc in M.path and rc not in d) \
+                    else (0xee,0xee,0)
             if (r_,c_)==M.mid: col=(0x80,0,0x80)
             if (r_,c_)==M.end: col=(0xff,0,0)
             pygame.draw.rect(scn,col,px_)
@@ -391,9 +397,7 @@ def main():
         #M.map_k()#KRUSKAL    
     else: #M.end=(1,1)
         #M.map_dfs()#DFS
-        for _ in range(10000):
-            M=Maze(*dims)#;print(M.fns(M.mid,()))
-            M.map_k()
+        M.map_k()
         #M.map_dfsr(M.mid);#print('start,end:\t',M.end)#DFSR
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
     if (dims[0]>view[0]) and (dims[1]>view[1]): #maze-cam is 1e4
