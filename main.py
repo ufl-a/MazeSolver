@@ -256,13 +256,11 @@ class Maze:
         for n in (ns:=self.ns(src)+[src]):self.B[n[0]][n[1]]=0 
         k=kset(ns) #add all path (non-wall) squares as singletons, and the region around start
         k.set([(r, c) for c in range(1,self.C,2) for r in range(1,self.R,2)]) 
-        _bnd=[(1,self.R-1) if not self.R%2 else (0,0),(1,self.C-1) if not self.C%2 else (0,0)]
-        bnd=lambda v: (v[0] in _bnd[0] or v[1] in _bnd[1]) and v[0]%2==v[1]%2==1 #and k.get(v,None) is not None and #not self.B[v[0]][v[1]]
-        bnd=lambda v: (v[0] in (1, self.R - 2)) or (v[1] in (1, self.C - 2))
+        #_bnd=[(1,self.R-1) if not self.R%2 else (0,),(1,self.C-1) if not self.C%2 else (0)]
+        _bnd=[(1 if not self.R%2 else 0,self.R-1),(1 if not self.C%2 else 0,self.C-1)]
+        bnd=lambda v:(v[0] in _bnd[0] or v[1] in _bnd[1]) #and v[0]%2==v[1]%2==1 #and k.get(v,None) is not None and #not self.B[v[0]][v[1]]
 
-
-
-        while ver and (self.end is None or k.find(self.end)!=k.find(src)): #break once path exists from src->bound(bnd)
+        while (self.end is None or k.find(self.end)!=k.find(src)): #break once path exists from src->bound(bnd)
             v=ver.pop(-1)
             if k.find(v[1])==k.find(v[2]): #matching subsets; if ==, then have the same rep->same subset. 
                 continue
@@ -312,7 +310,6 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
             "Take 50 Steps", \
             "Resume" if stop else "Stop",
               #f"Arcade" if arc else "Return",
-              f"Stop at:{M.end}",
     ]
           
     arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"Maze:{["Prim","DFS","Kruskal"][mgen]}",]
@@ -324,13 +321,12 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
     for _ in arrs:
         sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4);ofy+=20
         scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy));ofy+=50
-    #txt=[["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
-    #if rch:
-    #    for (i,_) in enumerate(txt):
-    #        c= [(0xff,0,0),(0,0xff,0)][i]
-    #        for a,b in [_]:
-    #            scn.blit(f.render(a,1,c),(ofx, ofy));ofy+=5*px
-    #            scn.blit(f.render(b,1,c),(ofx, ofy));ofy+=5*px
+    txt=[["Exit:",str(M.end)],["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
+    for (i,_) in enumerate(txt):
+        c=[(0xaa,0xba,0xda),(0,0xff,0),(0,0,0xff)][i]
+        for a,b in [_]:
+            scn.blit(f.render(a,1,c),(ofx, ofy));ofy+=2*px
+            scn.blit(f.render(b,1,c),(ofx, ofy));ofy+=2*px
 
     (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
     U=d.union(s)
@@ -345,9 +341,10 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
         for c in range(v):
             c_=C+c
             px_=pygame.Rect(c*px,r*px,px,px)
+
                     #else (0,0,0) if (((rc:=(r_,c_)) not in U) and (not rev or rc not in M.path)) \
             col=(0xff,0xff,0xff) if M.B[r_][c_]\
-                    else (0,0,0) if (((rc:=(r_,c_)) not in U) and not (rev and rc not in M.path)) \
+                    else (0,0,0) if (((rc:=(r_,c_)) not in U) and not (rev and rc in M.path)) \
                     else (0xff,0x10,0xf0) if (rev and rc in M.path and rc not in d) \
                     else (0xee,0xee,0)
             if (r_,c_)==M.mid: col=(0x80,0,0x80)
@@ -397,6 +394,7 @@ def main():
         #M.map_k()#KRUSKAL    
     else: #M.end=(1,1)
         #M.map_dfs()#DFS
+        M=Maze(*dims)#;print(M.fns(M.mid,()))
         M.map_k()
         #M.map_dfsr(M.mid);#print('start,end:\t',M.end)#DFSR
     djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
