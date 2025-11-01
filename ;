@@ -239,30 +239,32 @@ class Maze:
                 if (r+c)%2!=0: walls.append((r,c)) #(odd|even,even|odd) are walls
         while (len(walls)):#w=walls.pop(random.randint(0,len(walls)-1))
             w=walls.pop(-1)
-            if w[0]%2!=0 and w[1]%2==0:#ver
-                if 0<=(l:=w[1]-1)<self.C and 0<=(r:=w[1]+1)<self.C:# and l%2==0 and r%2==0:
-                    lp,rp=(w[0],l),(w[0],r)
-                    assert(lp[1]%2==rp[1]%2==1 and rp[1]%2==rp[1]%2==1)
-                    ver.append([w,lp,rp])
             if w[0]%2==0 and w[1]%2!=0: #hor
+                if 0<=(l:=w[1]-1)<self.C and 0<=(r:=w[1]+1)<self.C:# and l%2==0 and r%2==0:
+                    lp,rp=(w[0]-1,w[1]),(w[0]+1, w[1])
+                    lp,rp=(w[0],l),(w[0],r)
+                    assert lp[0]%2==lp[0]%2==1 and rp[0]%2==rp[1]%2==1
+                    ver.append([w,(w[0],l),(w[0],r)])
+            if w[0]%2!=0 and w[1]%2==0:#ver
                 if 0<=(u:=w[0]-1)<self.R and 0<=(d:=w[0]+1)<self.R:# and u%2==1 and d%2==1:
-                    up,dp=(u,w[1]),(d,w[1])
-                    assert (up[0]%2==up[1]%2==1 and dp[0]%2==dp[1]%2==1)
-                    ver.append([w,up,dp]) 
+                    up,dp=(u,w[0]),(d,w[0])
+                    if not (up[0]%2==up[1]%2==0 and dp[0]%2==dp[1]%2==0): print(w);e() #assert parities eq. 
+                    ver.append([w,(u,w[1]),(d,w[1])]) 
         for n in (ns:=self.ns(src)+[src]): 
             k=kset(ns)
             self.B[n[0]][n[1]]=0 
+
         for v in (ver):k.set([v[1],v[2]])
         random.shuffle(ver)
 
         brd=lambda v: ((v[0] in (1,self.R-1)) or (v[1] in (0,self.C-1)))
-        #while (self.end is None or k.find(self.end)!=k.find(self.mid)):
-        while ver: #dbug
-            v=ver.pop()
+        while len(ver): # || while (self.end is None or k.find(self.end)!=k.find(self.mid)):
+            v=ver.pop(-1)
             if k.find(v[1])!=k.find(v[2]): #matching subsets; if ==, then have the same rep->same subset.
                 k.U(v[1],v[2])# print(k.par)
                 self.B[v[0][0]][v[0][1]]=0
                 if not self.end:
+                    #if ((v[1][0] in (1,self.R-1)) or (v[1][1] in (0,self.C-1))) and (k.find(v[1])==k.find(src)):
                     if brd(v[1]) and (k.find(v[1])==k.find(src)):
                         self.end=v[1]
                         pars[v[1]]=v[2]
@@ -271,8 +273,6 @@ class Maze:
                         pars[v[2]]=v[1]
                     else:
                         pars[v[1]]=v[2]
-
-        self.end=(1,1) #d
         self.B[self.end[0]][self.end[1]]=0
         r=self.end
         while r is not None and r in pars:
