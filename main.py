@@ -10,7 +10,8 @@ krushkal:   https://weblog.jamisbuck.org/2011/1/3/maze-generation-kruskal-s-algo
 import random,sys,math,threading,time
 from os import environ;environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 import pygame
-p,e=print,sys.exit #for debug
+p,e=print,sys.exit
+
 
 class heapq: #mostly copied from std module; this is a minheap.
     def ripple_up(heap,pos):
@@ -82,7 +83,7 @@ class Maze:
     def sum2(self,t0,t1):return (t0[0]+t1[0],t0[1]+t1[1])
     #def ns(self,n): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip(self.dirs, [n]*4))] #neighbors
     def ns(self,n): return [(a+n[0],b+n[1]) for (a,b) in self.dirs] #neighbors
-    def ns2(self,n,d=None): return [(a+c, b+d) for ((a,b),(c,d)) in list(zip([(d0*2,d1*2) for (d0,d1) in (self.dirs if not d else d)], [n]*4))] 
+    def ns2(self,n,d=None): return [(a+c,b+d) for ((a,b),(c,d)) in list(zip([(d0*2,d1*2) for (d0,d1) in (self.dirs if not d else d)], [n]*4))] 
     #def fs(self,n,fs):f=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and self.B[rc[0]][rc[1]] and n not in fs;return list(filter(f,self.ns(n)))
     def fns(self,n,fs=None): #frontier neighbors, used for generating maze. (better)
         ret=[] #check if it is wall and not alr in frontiers
@@ -98,42 +99,41 @@ class Maze:
         if src is None: src = self.mid
         if dest is None: dest = self.end
         ys,heap,visit,cost=[],[],set(),0
-        heapq.heappush(heap,(cost,src,[]))
+        heapq.heappush(heap,(cost,src,[])) #dijkstras keeps a 'priority queue' that has a as its key the distance of a point from the origin.
         filt=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]]) 
         while len(heap): 
            (cost,pos,path)=heapq.heappop(heap) 
            if pos in visit:continue
+           visit.add(pos)
            ys=[]
            if pos==dest: 
                fd=path+[dest] #return (cost,path+[dest],visit)
                vd=len(visit)
                yield ()
-               return fd
+               return fd #complete path
            for sq in (ns:=filter(filt,self.ns(pos))):
                heapq.heappush(heap,(cost+1,sq,path+[sq]))
                #visit.add(sq)
                #ys.append(sq)
-           #print(heap)
-           vd=len(visit)
-           yield tuple(pos)
+           #ys.append(pos) #print(heap)
+           vd+=1#vd=len(visit)
+           yield (pos,)#decided on rendering the last popped item each clk.
            #ys.append(pos)
         return -1,[],[]
 
     def gen_star(self,src=None,dest=None): 
         global fs,heur,heurs,vs
-        if src is None: src = self.mid
-        if dest is None: dest = self.end; #print(src,dest)
+        if src is None:src=self.mid
+        if dest is None:dest=self.end; #print(src,dest)
         H=heurs[heur]
-        #open: ([distance from start+heur],heur,node,par) | closed (visited) | parents
+        #"open": ([distance from start+heur],heur,node,par) | closed (visited) | parents
         op=[((sh:=H((dest,src))),sh,0,src,None)] #op=[(0+(sh:=H((dest,src))),sh,src,None)]
-        cl,path,pars,cs=set(),[],{src:None},{src:0} #cs:minimum cost from start known for a given sq.
+        cl,path,pars,cs=set(),[],{src:None},{src:0} #cs ("costs"):minimum cost from start known for a given sq.
         fil=lambda rc:(0<=rc[0]<self.R) and (0<=rc[1]<self.C) and (not self.B[rc[0]][rc[1]] and rc not in cl)
         while len(op):
             cost,h,cnode,node,par_=heapq.heappop(op)#;print(top[1])#build path later
-            if node in cl or cnode>cs.get(node,float('inf')): continue
+            if node in cl or cnode>cs.get(node,float('inf')): continue #do not continue path if incrmented cost is gt. what is in map.
             cl.add(node)
-            ys=[] #"yields", added to s()
-            vs+=1 #cl.add(node)
             pars[node]=par_
             if node==dest:
                 path,r=[dest],pars[dest]
@@ -146,11 +146,8 @@ class Maze:
                     pars[sq]=node
                     h0=H((dest,sq))
                     heapq.heappush(op,(h0+cnode_,h0,cnode_,sq,node)); 
-                    ys.append(sq)
-            ys.append(node)#;print(ys)
             vs=len(cl)
-            yield tuple(ys)
-            #yield tuple(node,)
+            yield (node,); # matching djk, we don't yield tuple(ys); 
         return list(cl)
 
     #~~~~~~~~~ MAZE GEN ~~~~~~~~~~~~~
@@ -170,7 +167,7 @@ class Maze:
         return s,ret
 
     def map_prim(self,p=None,f=None): #prims algo,p=path,f=frontiers
-        if p==f==None: p,f=self.mid,self.fns(M.mid,())
+        if p==f==None: p,f=self.mid,self.fns(self.mid,())
         path={self.mid:None}
         self.B[p[0]][p[1]]=0 #gen from here 
         fil=lambda rc:(0<=rc[0]<self.R and 0<=rc[1]<self.C) and not self.B[rc[0]][rc[1]]
@@ -262,20 +259,16 @@ class Maze:
 
         while (self.end is None or k.find(self.end)!=k.find(src)): #break once path exists from src->bound(bnd)
             v=ver.pop(-1)
-            if k.find(v[1])==k.find(v[2]): #matching subsets; if ==, then have the same rep->same subset. 
-                continue
-            else:
-                # average case, this is in O(1) since we expect the head of each subset to be the parent of all other members of set.
+            if k.find(v[1])==k.find(v[2]): continue #matching subsets; if ==, then have the same rep->same subset, (they are connected, and you can trace a path thru them.)
+            # average case, this is in O(1) since we expect the head of each subset to be the parent of all other members of set.
+            else: 
                 k.U(v[1],v[2])# print(k.par)
                 self.B[v[0][0]][v[0][1]]=0 #rm wall
-                if bnd(v[1]) and k.find(v[1])==k.find(src): self.end,pars[v[1]]=v[1],v[2]
-                elif bnd(v[2])and k.find(v[2])==k.find(src):
-                    self.end=v[2]
-                    pars[v[2]]=v[1]
-                else:
-                    pars[v[2]]=v[1]
+                if  bnd(v[1]) and k.find(v[1])==k.find(src): self.end,pars[v[1]]=v[1],v[2]
+                elif bnd(v[2])and k.find(v[2])==k.find(src): self.end,pars[v[2]]=v[2],v[1]
+                else: pars[v[2]]=v[1]
         r=self.end
-        #while r is not None and r in pars:
+        #while r is not None and r in pars: #TODO
         #    self.path.add(r)
         #    r=pars[r]
             
@@ -302,17 +295,16 @@ class sprite:
 def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
     #render v tiles from top-left(tl)
     #ofx,ofy=(max(0,ofs[0]//px),max(0,ofs[1]//px)) #shift,start
-    global px0,pw,rf,stop,heur,mgen,ofx,vd,vs
+    global px0,pw,rf,stop,heur,mgen,ofx,vd,vs,arc
     f=pygame.font.SysFont("consolas",20)
     strs=["Recenter", \
-          ("Show" if not rev else "Hide")+" Path","Restart",\
-            "Complete" if not rch else "New Board",\
-            "Take 50 Steps", \
-            "Resume" if stop else "Stop",
-              #f"Arcade" if arc else "Return",
+          ("[Show" if not rev else "[Hide")+" Path]","[Restart]",\
+            "[Complete]" if not rch else "[New Board]",\
+            "[Take 50 Steps]", \
+            "[Resume]" if stop else "[Stop]",
     ]
           
-    arrs=[f"Heur:{["Euclidian","Manhattan"][heur]}",f"Maze:{["Prim","DFS","Kruskal"][mgen]}",]
+    arrs=[f"Heur:{["Manhattan","Euclidian",][heur]}",f"Maze:{["Prim","DFS","Kruskal"][mgen]}",]
 
     px=10 #constant px for panel
     ofy=5*px
@@ -321,12 +313,15 @@ def render(M,tl,d,s,scn,px,rev,zm,v=100,ft="arial",fts=20):
     for _ in arrs:
         sprite.arrow_pair(scn,0xffffff,(px0+pw//2,ofy),20,10,4);ofy+=20
         scn.blit(f.render(_,1,(0xff,0xff,0xff)),(ofx,ofy));ofy+=50
-    txt=[["Exit:",str(M.end)],["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)]]
+    #txt=[["Exit:",str(M.end)],["DijkstraSquares:",str(vd)],["A*Squares:",str(vs)],[f"[{"Arcade" if not arc else "Return"}]","" ]] #TODO, s is subset of d, ensure vs<vd
+    txt=[[f"[{"Arcade" if not arc else "Return"}]","" ]]
+
     for (i,_) in enumerate(txt):
-        c=[(0xaa,0xba,0xda),(0,0xff,0),(0,0,0xff)][i]
+        #c=[(0xff,0xff,0xff),(0,0xff,0),(0,0,0xff),(0xff,0xff,0xff)][i]
+        c=[(0xff,0xff,0xff)][i]
         for a,b in [_]:
             scn.blit(f.render(a,1,c),(ofx, ofy));ofy+=2*px
-            scn.blit(f.render(b,1,c),(ofx, ofy));ofy+=2*px
+            if b: scn.blit(f.render(b,1,c),(ofx, ofy));ofy+=2*px
 
     (R,C)=(int(tl[0]),int(tl[1]))#;print(tl)
     U=d.union(s)
@@ -374,8 +369,8 @@ def main():
     ofx=px0+15
 
     heurs=[
-          lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
           lambda xy: (abs(xy[0][0]-xy[1][0])+abs(xy[0][1]-xy[1][1])),
+          lambda xy:( (xy[1][1]-xy[0][1])**2 + (xy[1][0]-xy[0][0])**2 )**(1/2),
         ]
     mgens=["Prims","DFS","Kruskal"]
     heur,mgen=0,0
@@ -388,9 +383,9 @@ def main():
 
     #~~~~~~~~~~ MAZE INIT ~~~~~~~~~~~~~
     M=Maze(*dims)#;print(M.fns(M.mid,()))
-    #M.map_prim()#PRIMS
     if not dbug:
-        M.map_dfs()#DFS
+        M.map_prim()#PRIMS
+        #M.map_dfs()#DFS
         #M.map_k()#KRUSKAL    
     else: #M.end=(1,1)
         #M.map_dfs()#DFS
@@ -436,7 +431,7 @@ def main():
                 #if event.key==pygame.K_w:step()
                 if pygame.key.get_pressed()[pygame.K_LCTRL] and event.key == pygame.K_c:run=0
             elif event.type==pygame.MOUSEBUTTONDOWN and event.button:
-                if (epos:=event.pos)[0]<px0:
+                if (epos:=event.pos)[0]<px0: 
                     drag,mpos=(1,event.pos)
 
                 #~~~~~~panels~~~~~~~
@@ -460,17 +455,11 @@ def main():
                             if cmpl_T is not None and cmpl_T.is_alive():
                                 cmpl_T.join(timeout=.1)
                                 cmpl_T=None
-                            M.B=[[1 for j in range(0,M.C)] for i in range(0,M.R)]
+                            M=Maze(*dims)
                             match mgen:
-                                case 0: 
-                                    M=Maze(*dims)
-                                    M.map_prim(M.mid,M.fns(M.mid,()))
-                                case 1: 
-                                    M=Maze(*dims)
-                                    M.map_dfs(M.mid)
-                                case 2: 
-                                    M=Maze(*dims)
-                                    M.map_k()
+                                case 0: M.map_prim(M.mid,M.fns(M.mid,()))
+                                case 1: M.map_dfs(M.mid)
+                                case 2: M.map_k()
                             djik,star=(M.gen_djik(M.mid,M.end),M.gen_star(M.mid,M.end))
                             d,s,rch,stop=set(),set(),0,0
                             continue
@@ -479,20 +468,17 @@ def main():
                             cmpl_T=threading.Thread(target=cmpl,daemon=True)
                             cmpl_T.start()
 
-                    if 25*px<epos[1]<30*px: # N-steps
+                    if 25*px<epos[1]<30*px: 
                         for _ in range(50): step()
-                    if 30*px<epos[1]<32*px and (cmpl_T is not None): # unset resume. Complete thread awaits (re)set.
-                        stop=not stop
-                        if stop: res_E.clear() 
-                        else: res_E.set() 
-                    if 33*px<epos[1]<40*px: 
-                        heur=(heur+(-1 if epos[0]<ofx else 1))%len(heurs)
-                    if 40*px<epos[1]<45*px: 
-                        mgen=(mgen+(-1 if epos[0]<ofx else 1))%len(mgens)
+                    if 30*px<epos[1]<32*px and (cmpl_T is not None): stop=not stop;[res_E.set,res_E.clear][stop]() # unset resume. Complete thread awaits (re)set.
+                    if 33*px<epos[1]<40*px: heur=(heur+(-1 if epos[0]<ofx else 1))%len(heurs)
+                    if 40*px<epos[1]<45*px: mgen=(mgen+(-1 if epos[0]<ofx else 1))%len(mgens)
+                    if 50*px<epos[1]<55*px: arc=not arc
+                    #if 60*px<epos[1]<65*px: arc=not arc #after vs,vd fix
 
             #~~~~~~drag~~~~~~~
             elif event.type==pygame.MOUSEBUTTONUP and event.button:drag=0
-            elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<px0):
+            elif event.type==pygame.MOUSEMOTION and drag and ((epos:=event.pos[0])<px0) and not arc:
                 epos=event.pos
                 delt=epos[0]-mpos[0],epos[1]-mpos[1] #view delta
                 tl=(tl[0]-(delt[1]/px),tl[1]-(delt[0]/px))
@@ -501,7 +487,7 @@ def main():
                 mpos=epos
 
             #~~~~~~scroll~~~~~~~
-            elif event.type == pygame.MOUSEWHEEL: #view min:50,max:200
+            elif event.type == pygame.MOUSEWHEEL and not arc: #view min:50,max:200
                 #method of zooming while keeping cursor on a square
                 if ((epos:=pygame.mouse.get_pos())[0]<px0):
                     v0=view 
